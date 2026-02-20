@@ -10,52 +10,32 @@ use Illuminate\Validation\Rules\Password;
 
 class RestaurantAuthController extends Controller
 {
-    public function showRegister()
+    
+    public function showAdminLogin()
     {
-        return view('restaurant.register');
+        return view('admin.login');
     }
 
-    public function register(Request $request)
+    public function AdminLogin(Request $request)
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-
-            'email' => 'required|string|email|max:255|unique:restaurants,email',
-
-            'phone' => 'required|digits_between:10,15|unique:restaurants,phone',
-
-            'password' => [
-                'required',
-                'confirmed',
-                Password::min(8)
-                    ->letters()
-                    ->mixedCase()
-                    ->numbers()
-                    ->symbols()
-            ],
-
-            'address' => 'required|string|max:500',
-            'city' => 'required|string|max:100',
-            'state' => 'required|string|max:100',
-            'pincode' => 'required|digits_between:4,10',
+        $credentials = $request->validate([
+            'email' => 'required|email',
+            'password' => 'required',
         ]);
 
-        $restaurant = Restaurant::create([
-            'name' => trim($validated['name']),
-            'email' => trim($validated['email']),
-            'phone' => trim($validated['phone']),
-            'password' => Hash::make($validated['password']),
-            'address' => trim($validated['address']),
-            'city' => trim($validated['city']),
-            'state' => trim($validated['state']),
-            'pincode' => trim($validated['pincode']),
+        if (Auth::guard('admin')->attempt($credentials)) {
+            return redirect()->route('admin.dashboard');
+        }
+
+        return back()->withErrors([
+            'email' => 'Invalid credentials',
         ]);
+    }
 
-        // Auto login after registration
-        Auth::guard('restaurant')->login($restaurant);
-
-        return redirect()->route('restaurant.dashboard')
-            ->with('success', 'Registered Successfully!');
+    public function adminLogout()
+    {
+        Auth::guard('admin')->logout();
+        return redirect()->route('admin.login');
     }
 
     // Show Login

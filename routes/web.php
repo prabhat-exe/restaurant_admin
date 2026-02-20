@@ -6,13 +6,14 @@ use App\Http\Controllers\MenuImportController;
 
 
 Route::get('/', function () {
-    return view('welcome');
+    return redirect()->route('restaurant.login');
+});
+
+Route::fallback(function () {
+    return response()->view('errors.404', [], 404);
 });
 
 Route::prefix('restaurant')->group(function () {
-
-    Route::get('register', [RestaurantAuthController::class, 'showRegister'])->name('restaurant.register.form');
-    Route::post('register', [RestaurantAuthController::class, 'register'])->name('restaurant.register');
 
     Route::get('login', [RestaurantAuthController::class, 'showLogin'])->name('restaurant.login');
     Route::post('login', [RestaurantAuthController::class, 'login'])->name('restaurant.login.submit');
@@ -33,4 +34,17 @@ Route::prefix('restaurant')->group(function () {
         ->name('menu.import');
 
 
+});
+
+Route::prefix('admin')->group(function () {
+    Route::get('login', [RestaurantAuthController::class, 'showAdminLogin'])->name('admin.login');
+    Route::post('login', [RestaurantAuthController::class, 'adminLogin'])->name('admin.login.submit');
+
+    Route::middleware('auth:admin')->group(function () {
+        Route::post('logout', [RestaurantAuthController::class, 'adminLogout'])->name('admin.logout');
+        Route::get('dashboard', [\App\Http\Controllers\AdminController::class, 'dashboard'])->name('admin.dashboard');
+        Route::get('restaurant/create', [\App\Http\Controllers\AdminController::class, 'createRestaurant'])->name('admin.restaurant.create');
+        Route::post('restaurant/store', [\App\Http\Controllers\AdminController::class, 'storeRestaurant'])->name('admin.restaurant.store');
+        Route::post('restaurant/update/{id}', [\App\Http\Controllers\AdminController::class, 'updateRestaurant'])->name('admin.restaurant.update');
+    });
 });

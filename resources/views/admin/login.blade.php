@@ -24,7 +24,7 @@
 
             <div class="card shadow">
                 <div class="card-header bg-dark text-white text-center">
-                    <h4>Restaurant Login</h4>
+                    <h4>Admin Login</h4>
                 </div>
 
                 <div class="card-body">
@@ -36,7 +36,7 @@
                     @endif
 
                     <form method="POST"
-                          action="{{ route('restaurant.login.submit') }}"
+                          action="{{ route('admin.login.submit') }}"
                           id="loginForm"
                           data-parsley-validate>
                         @csrf
@@ -68,11 +68,7 @@
                         </button>
                     </form>
 
-                    <div class="text-center mt-3">
-                        <p class="text-muted">
-                            To know your credentials, please contact the admin.
-                        </p>
-                    </div>
+
                 </div>
             </div>
 

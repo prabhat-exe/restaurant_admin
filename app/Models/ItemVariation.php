@@ -7,9 +7,17 @@ use Illuminate\Database\Eloquent\Model;
 class ItemVariation extends Model
 {
     protected $fillable = [
-        'menu_item_id',
-        'variation_name',
-        'price'
+        'item_id',
+        'user_id',
+        'variation_id',
+        'variation_price',
+        'web_price',
+        'mobile_price',
     ];
+
+    public function variation()
+    {
+        return $this->belongsTo(Variation::class);
+    }
 
 }
