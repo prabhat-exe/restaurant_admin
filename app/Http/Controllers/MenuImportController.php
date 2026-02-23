@@ -10,7 +10,8 @@ use App\Models\SubCategory;
 use App\Models\ItemVariation;
 use App\Models\TaxClass;
 use App\Models\TaxRate;
-
+use App\Models\Variation;
+use App\Models\ItemAddon;
 
 
 
@@ -149,39 +150,137 @@ class MenuImportController extends Controller
 
                         /* HANDLE VARIATIONS */
 
+                        // if (!empty($itemData['item_variation'])) {
+
+                        //     foreach ($itemData['item_variation'] as $variation) {
+
+                        //         if (!empty($variation['variation_detail'][0])) {
+
+                        //             ItemVariation::create([
+                        //                 'menu_item_id' => $item->id,
+                        //                 'variation_name' => $variation['variation_detail'][0]['variation_name'],
+                        //                 'price' => $variation['variation_price']
+                        //             ]);
+                        //         }
+                        //     }
+                        // }
                         if (!empty($itemData['item_variation'])) {
 
-                            foreach ($itemData['item_variation'] as $variation) {
+                            foreach ($itemData['item_variation'] as $variationData) {
 
-                                if (!empty($variation['variation_detail'][0])) {
+                                if (!empty($variationData['variation_detail'][0])) {
 
-                                    ItemVariation::create([
-                                        'menu_item_id' => $item->id,
-                                        'variation_name' => $variation['variation_detail'][0]['variation_name'],
-                                        'price' => $variation['variation_price']
-                                    ]);
+                                    $variationName = trim($variationData['variation_detail'][0]['variation_name']);
+
+                                    // Prices from JSON
+                                    $posPrice = $variationData['variation_price'] ?? 0;
+                                    $webPrice = $variationData['web_price'] ?? 0;
+                                    $mobilePrice = $variationData['mobile_price'] ?? 0;
+
+                                    $variation = Variation::firstOrCreate(
+                                        [
+                                            'variation_name' => $variationName,
+                                            'created_by' => $restaurant->id
+                                        ],
+                                        [
+                                            'created_by_super_admin' => 0,
+                                            'department_id' => null
+                                        ]
+                                    );
+
+                                    ItemVariation::updateOrCreate(
+                                        [
+                                            'item_id' => $item->id,
+                                            'variation_id' => $variation->id,
+                                        ],
+                                        [
+                                            'user_id' => $restaurant->id,
+                                            'pos_price' => $posPrice,         // variation_price
+                                            'web_price' => $webPrice,         // web_price from JSON
+                                            'mobile_price' => $mobilePrice,   // mobile_price from JSON
+                                        ]
+                                    );
                                 }
                             }
                         }
                     }
                 }
-            }}else{
+            }
+            /*
+            |--------------------------------------------------------------------------
+            | SECOND PASS - HANDLE ADDONS
+            |--------------------------------------------------------------------------
+            */
+
+            foreach ($json['Category_data'] as $categoryData) {
+
+                foreach ($categoryData['sub_category_data'] as $subCategoryData) {
+
+                    foreach ($subCategoryData['item_data'] as $itemData) {
+
+                        // Find main item
+                        $mainItem = MenuItem::where('restaurant_id', $restaurant->id)
+                            ->where('name', $itemData['name'])
+                            ->first();
+
+                        if (!$mainItem) continue;
+
+                        if (!empty($itemData['addon_data'])) {
+
+                            foreach ($itemData['addon_data'] as $addonData) {
+
+                                $addonItemName = $addonData['addon_item']['name'] ?? null;
+
+                                if (!$addonItemName) continue;
+
+                                $addonItem = MenuItem::where('restaurant_id', $restaurant->id)
+                                    ->where('name', $addonItemName)
+                                    ->first();
+
+                                if ($addonItem) {
+
+                                    ItemAddon::updateOrCreate(
+                                        [
+                                            'item_id' => $mainItem->id,
+                                            'addon_item_id' => $addonItem->id,
+                                        ],
+                                        [
+                                            'user_id' => $restaurant->id,
+                                            'pos_price' => $addonData['offered_price'] ?? 0,
+                                            'web_price' => $addonData['web_offered_price'] ?? 0,
+                                            'mobile_price' => $addonData['mob_offered_price'] ?? 0,
+                                        ]
+                                    );
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            }else{
+                // dd('hello');
                 return back()->with('error', 'No Category Data Found in JSON');
             }
         });
-
-        return back()->with('success', 'Menu Imported Successfully');
+        // dd('hello');
+        return redirect()->route('restaurant.dashboard')->with('success', 'Menu imported successfully');
     }
 
     public function dashboard()
     {
         $restaurant = auth('restaurant')->user();
 
-        $items = MenuItem::where('restaurant_id', $restaurant->id)
+        $items = MenuItem::with([
+                'variations.variation',
+                'addons.addonItem'
+            ])
+            ->where('restaurant_id', $restaurant->id)
             ->latest()
             ->paginate(20);
 
-        return view('restaurant.dashboard', compact('items'));
+        $hasMenu = $items->total() > 0;
+        // dd($items);
+        return view('restaurant.dashboard', compact('items', 'hasMenu'));
     }
 
 }
