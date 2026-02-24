@@ -14,7 +14,7 @@
         </span>
 
         <div>
-            <a href="#" class="btn btn-light btn-sm me-2">
+            <a href="{{ route('restaurant.orders') }}" class="btn btn-light btn-sm me-2">
                 Orders
             </a>
 

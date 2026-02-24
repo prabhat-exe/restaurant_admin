@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\RestaurantAuthController;
 use App\Http\Controllers\MenuImportController;
+use App\Http\Controllers\RestaurantOrderController;
 
 
 Route::get('/', function () {
@@ -33,6 +34,7 @@ Route::prefix('restaurant')->group(function () {
         ->middleware('auth:restaurant')
         ->name('menu.import');
 
+    Route::get('orders', [RestaurantOrderController::class, 'showOrders'])->middleware('auth:restaurant')->name('restaurant.orders');
 
 });
 
