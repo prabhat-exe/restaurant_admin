@@ -36,6 +36,11 @@ Route::prefix('restaurant')->group(function () {
 
     Route::get('orders', [RestaurantOrderController::class, 'showOrders'])->middleware('auth:restaurant')->name('restaurant.orders');
 
+    Route::get('download-sample', function () {
+    return response()->download(
+        public_path('templates/item_sampleFile.xlsx')
+        );
+    })->middleware('auth:restaurant')->name('menu.sample.download');
 });
 
 Route::prefix('admin')->group(function () {
