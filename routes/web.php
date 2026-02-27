@@ -26,13 +26,17 @@ Route::prefix('restaurant')->group(function () {
         ->name('restaurant.dashboard');
 
 
-    Route::get('menu-import', function () {
-        return view('restaurant.menu_import');
-    })->middleware('auth:restaurant')->name('menu.import.form');
+    Route::get('menu-import', [MenuImportController::class, 'showImportForm'])
+        ->middleware('auth:restaurant')
+        ->name('menu.import.form');
 
     Route::post('menu-import', [MenuImportController::class, 'import'])
         ->middleware('auth:restaurant')
         ->name('menu.import');
+
+    Route::delete('menu-import', [MenuImportController::class, 'destroyMenu'])
+        ->middleware('auth:restaurant')
+        ->name('menu.destroy');
 
     Route::get('orders', [RestaurantOrderController::class, 'showOrders'])->middleware('auth:restaurant')->name('restaurant.orders');
 

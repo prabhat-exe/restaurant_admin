@@ -14,6 +14,50 @@
 @extends('layouts.panel')
 
 @section('content')
+    @if(session('success'))
+        <div class="mb-4 rounded-lg border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-700">
+            {{ session('success') }}
+        </div>
+    @endif
+    @if(session('error'))
+        <div class="mb-4 rounded-lg border border-error-200 bg-error-50 px-4 py-3 text-sm text-error-700">
+            {{ session('error') }}
+        </div>
+    @endif
+    @if($errors->any())
+        <div class="mb-4 rounded-lg border border-error-200 bg-error-50 px-4 py-3 text-sm text-error-700">
+            {{ $errors->first() }}
+        </div>
+    @endif
+
+    <div class="mb-4 flex items-center justify-end gap-3">
+        @if($hasMenu)
+            <form method="POST" action="{{ route('menu.destroy') }}"
+                onsubmit="
+                    const typed = prompt('Type DELETE to permanently remove full menu');
+                    if (typed !== 'DELETE') {
+                        alert('Deletion cancelled. You must type DELETE exactly.');
+                        return false;
+                    }
+                    this.querySelector('input[name=confirm_text]').value = typed;
+                    return confirm('This action is permanent. Continue?');
+                ">
+                @csrf
+                @method('DELETE')
+                <input type="hidden" name="confirm_text" value="">
+                <button
+                    class="inline-flex items-center rounded-lg bg-error-500 px-4 py-2 text-sm font-medium text-white hover:bg-error-600 transition">
+                    Delete Entire Menu
+                </button>
+            </form>
+        @else
+            <a href="{{ route('menu.import.form') }}"
+                class="inline-flex items-center rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600 transition">
+                Import Menu
+            </a>
+        @endif
+    </div>
+
 <div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-theme-sm dark:border-gray-800 dark:bg-gray-900">
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200 text-sm">
@@ -138,4 +182,3 @@
         {{ $items->links() }}
     </div>
 @endsection
-
