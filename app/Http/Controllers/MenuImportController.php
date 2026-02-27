@@ -14,6 +14,7 @@ use App\Models\Variation;
 use App\Models\ItemAddon;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Imports\MenuExcelImport;
+use Illuminate\Support\Facades\Http;
 
 
 
@@ -52,6 +53,8 @@ class MenuImportController extends Controller
                     $request->file('excel_file')
                 );
             });
+
+            $this->triggerReindex($restaurant->id);
 
             return redirect()
                 ->route('restaurant.dashboard')
@@ -166,6 +169,8 @@ class MenuImportController extends Controller
                 }
             });
 
+            $this->triggerReindex($restaurant->id);
+
             return redirect()
                 ->route('restaurant.dashboard')
                 ->with('success', 'JSON menu imported successfully');
@@ -214,6 +219,23 @@ class MenuImportController extends Controller
         $hasMenu = $items->total() > 0;
         // dd($items);
         return view('restaurant.dashboard', compact('items', 'hasMenu'));
+    }
+
+    private function triggerReindex(int $restaurantId): void
+    {
+        $aiBaseUrl = rtrim((string) env('AI_SERVICE_URL', 'http://127.0.0.1:8000'), '/');
+
+        try {
+            Http::timeout(10)->post($aiBaseUrl . '/reindex', [
+                'restaurant_id' => $restaurantId,
+            ]);
+        } catch (\Throwable $e) {
+            // Do not block admin menu import on AI indexing issues.
+            logger()->warning('AI reindex trigger failed', [
+                'restaurant_id' => $restaurantId,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
 }

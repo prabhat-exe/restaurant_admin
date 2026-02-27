@@ -21,6 +21,14 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'phone_code',
+        'phone_number',
+        'first_name',
+        'last_name',
+        'api_token',
+        'otp_code',
+        'otp_expires_at',
+        'is_phone_verified',
     ];
 
     /**
@@ -31,6 +39,8 @@ class User extends Authenticatable
     protected $hidden = [
         'password',
         'remember_token',
+        'api_token',
+        'otp_code',
     ];
 
     /**
@@ -43,6 +53,8 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'otp_expires_at' => 'datetime',
+            'is_phone_verified' => 'boolean',
         ];
     }
 }

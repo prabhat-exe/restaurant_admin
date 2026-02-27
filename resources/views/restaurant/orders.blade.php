@@ -22,7 +22,7 @@
                         <tr>
                             <th class="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">#</th>
                             <th class="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">Order ID</th>
-                            <th class="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">Customer Name</th>
+                            <th class="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">Customer</th>
                             <th class="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">Total Amount</th>
                             <th class="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">Status</th>
                             <th class="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">Date</th>
@@ -33,11 +33,11 @@
                             <tr>
                                 <td class="px-4 py-3">{{ $index + 1 }}</td>
                                 <td class="px-4 py-3 ">{{ $order->order_id }}</td>
-                                <td class="px-4 py-3">{{ $order->customer_name ?? 'N/A' }}</td>
+                                <td class="px-4 py-3">{{ $order->customer_name ?? ('User #' . ($order->user_id ?? 'N/A')) }}</td>
                                 <td class="px-4 py-3">Rs {{ $order->total_price ?? 0 }}</td>
                                 <td class="px-4 py-3">
                                     <span class="inline-flex rounded-full bg-success-100 px-2.5 py-1 text-xs font-semibold text-success-700">
-                                        {{ $order->status ?? 'Placed' }}
+                                        {{ $order->order_status == 4 ? 'Placed' : 'In Progress' }}
                                     </span>
                                 </td>
                                 <td class="px-4 py-3">{{ $order->created_at->format('d M Y h:i A') }}</td>
