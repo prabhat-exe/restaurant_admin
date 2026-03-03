@@ -100,7 +100,7 @@
                     </div>
 
                     <!-- Divider -->
-                    <div class="flex items-center gap-4 mb-6">
+                    {{-- <div class="flex items-center gap-4 mb-6">
                         <div class="flex-1 border-t border-gray-300 dark:border-gray-700"></div>
                         <span class="text-xs text-gray-500 dark:text-gray-400 font-medium">OR</span>
                         <div class="flex-1 border-t border-gray-300 dark:border-gray-700"></div>
@@ -122,7 +122,7 @@
                         <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
                             Upload a restaurant menu PDF. Our AI will automatically extract categories and items.
                         </p>
-                    </div>
+                    </div> --}}
 
                     <button
                         class="inline-flex items-center rounded-lg bg-brand-500 px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-600 transition">
