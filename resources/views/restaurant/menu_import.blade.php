@@ -99,6 +99,31 @@
                         >
                     </div>
 
+                    <!-- Divider -->
+                    <div class="flex items-center gap-4 mb-6">
+                        <div class="flex-1 border-t border-gray-300 dark:border-gray-700"></div>
+                        <span class="text-xs text-gray-500 dark:text-gray-400 font-medium">OR</span>
+                        <div class="flex-1 border-t border-gray-300 dark:border-gray-700"></div>
+                    </div>
+
+                    <!-- PDF OPTION -->
+                    <div class="mb-6">
+                        <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Upload Menu PDF (.pdf)
+                        </label>
+
+                        <input
+                            type="file"
+                            name="pdf_file"
+                            accept=".pdf"
+                            class="block w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm text-gray-700 file:mr-4 file:rounded-md file:border-0 file:bg-purple-500 file:px-4 file:py-2 file:text-white hover:file:bg-purple-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
+                        >
+
+                        <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                            Upload a restaurant menu PDF. Our AI will automatically extract categories and items.
+                        </p>
+                    </div>
+
                     <button
                         class="inline-flex items-center rounded-lg bg-brand-500 px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-600 transition">
                         Import Menu

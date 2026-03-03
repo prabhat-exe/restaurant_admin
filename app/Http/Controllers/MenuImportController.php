@@ -28,7 +28,61 @@ class MenuImportController extends Controller
         return view('restaurant.menu_import', compact('hasMenu'));
     }
 
-    
+    private function sendPdfToAi($pdfFile, int $restaurantId)
+    {
+        $aiBaseUrl = rtrim((string) env('AI_SERVICE_URL'), '/');
+
+        $response = \Illuminate\Support\Facades\Http::timeout(120)
+            ->attach(
+                'file',
+                file_get_contents($pdfFile->getRealPath()),
+                $pdfFile->getClientOriginalName()
+            )
+            ->post($aiBaseUrl . '/parse-menu-pdf', [
+                'restaurant_id' => $restaurantId
+            ]);
+
+        if ($response->successful()) {
+            return $response->json();
+        }
+
+        return null;
+    }
+
+    private function storeMenuFromJson(array $json, $restaurant)
+    {
+        foreach ($json['Category_data'] as $categoryData) {
+
+            $category = \App\Models\Category::create([
+                'restaurant_id' => $restaurant->id,
+                'name' => $categoryData['name'],
+                'status' => 1
+            ]);
+
+            foreach ($categoryData['sub_category_data'] as $subCategoryData) {
+
+                $subCategory = \App\Models\SubCategory::create([
+                    'restaurant_id' => $restaurant->id,
+                    'category_id' => $category->id,
+                    'name' => $subCategoryData['name'],
+                    'status' => 1
+                ]);
+
+                foreach ($subCategoryData['item_data'] as $itemData) {
+
+                    \App\Models\MenuItem::create([
+                        'restaurant_id' => $restaurant->id,
+                        'category_id' => $category->id,
+                        'name' => $itemData['name'],
+                        'description' => $itemData['description'] ?? null,
+                        'price' => $itemData['price'] ?? 0,
+                        'is_available' => 1,
+                    ]);
+                }
+            }
+        }
+    }
+
     public function import(Request $request)
     {
         $restaurant = auth('restaurant')->user();
@@ -37,7 +91,7 @@ class MenuImportController extends Controller
         if ($hasMenu) {
             return back()->with('error', 'Menu already exists. Delete current menu before importing again.');
         }
-
+        
         // -----------------------------
         // 1️⃣ EXCEL IMPORT
         // -----------------------------
@@ -174,6 +228,59 @@ class MenuImportController extends Controller
             return redirect()
                 ->route('restaurant.dashboard')
                 ->with('success', 'JSON menu imported successfully');
+        }
+        
+        // -----------------------------
+        // 3️⃣ PDF IMPORT (AI Based)
+        // -----------------------------
+        if ($request->hasFile('pdf_file')) {
+            // dd($request->all());
+
+            // dd('hello to check the pdf upload file ');
+            $request->validate([
+                'pdf_file' => 'required|mimes:pdf|max:10240',
+            ]);
+
+            $restaurant = auth('restaurant')->user();
+
+            try {
+
+                // Send PDF to AI service
+                $structuredJson = $this->sendPdfToAi(
+                    $request->file('pdf_file'),
+                    $restaurant->id
+                );
+
+                // Validate AI response
+                if (
+                    !$structuredJson ||
+                    !isset($structuredJson['Category_data']) ||
+                    !is_array($structuredJson['Category_data'])
+                ) {
+                    return back()->with('error', 'AI failed to extract valid menu data from PDF.');
+                }
+
+                // Store menu using your existing JSON logic
+                DB::transaction(function () use ($structuredJson, $restaurant) {
+                    $this->storeMenuFromJson($structuredJson, $restaurant);
+                });
+
+                // Trigger AI reindex
+                $this->triggerReindex($restaurant->id);
+
+                return redirect()
+                    ->route('restaurant.dashboard')
+                    ->with('success', 'PDF menu imported successfully');
+
+            } catch (\Throwable $e) {
+
+                logger()->error('PDF import failed', [
+                    'restaurant_id' => $restaurant->id,
+                    'error' => $e->getMessage(),
+                ]);
+
+                return back()->with('error', 'Something went wrong while importing PDF.');
+            }
         }
 
         return back()->with('error', 'Please paste JSON or upload Excel file');

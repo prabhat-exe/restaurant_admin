@@ -12,7 +12,9 @@
     <div class="min-h-screen">
         <aside id="sidebar" class="fixed top-0 left-0 z-50 flex h-screen w-[280px] -translate-x-full flex-col border-r border-gray-200 bg-white transition-transform duration-300 dark:border-gray-800 dark:bg-gray-900 xl:translate-x-0">
             <div class="border-b border-gray-200 px-6 py-5 dark:border-gray-800">
-                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">{{ $panelName ?? 'Dashboard' }}</h2>
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+                    {{ auth('restaurant')->user()->name ?? 'Restaurant Panel' }}
+                </h2>
             </div>
 
             <nav class="flex-1 space-y-1 overflow-y-auto px-4 py-4">

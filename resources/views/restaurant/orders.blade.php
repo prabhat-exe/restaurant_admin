@@ -6,7 +6,7 @@
     $logoutRoute = 'restaurant.logout';
     $navLinks = [
         ['label' => 'Items', 'route' => 'restaurant.dashboard'],
-        ['label' => 'Orders', 'route' => 'restaurant.orders'],
+        ['label' => 'Orders', 'route' => 'restaurant.orders', 'active' => 'restaurant.orders*'],
         ['label' => 'Menu Import', 'route' => 'menu.import.form'],
     ];
 @endphp
@@ -26,6 +26,7 @@
                             <th class="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">Total Amount</th>
                             <th class="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">Status</th>
                             <th class="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">Date</th>
+                            <th class="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">Action</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100">
@@ -33,7 +34,9 @@
                             <tr>
                                 <td class="px-4 py-3">{{ $index + 1 }}</td>
                                 <td class="px-4 py-3 ">{{ $order->order_id }}</td>
-                                <td class="px-4 py-3">{{ $order->customer_name ?? ('User #' . ($order->user_id ?? 'N/A')) }}</td>
+                                <td class="px-4 py-3">
+                                    {{ $order->user->name ?? 'Guest User' }}
+                                </td>
                                 <td class="px-4 py-3">Rs {{ $order->total_price ?? 0 }}</td>
                                 <td class="px-4 py-3">
                                     <span class="inline-flex rounded-full bg-success-100 px-2.5 py-1 text-xs font-semibold text-success-700">
@@ -41,6 +44,12 @@
                                     </span>
                                 </td>
                                 <td class="px-4 py-3">{{ $order->created_at->format('d M Y h:i A') }}</td>
+                                <td class="px-4 py-3">
+                                    <a href="{{ route('restaurant.orders.details', $order->order_id) }}"
+                                       class="inline-flex rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-brand-600">
+                                        View Order
+                                    </a>
+                                </td>
                             </tr>
                         @endforeach
                     </tbody>

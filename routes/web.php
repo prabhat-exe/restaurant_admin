@@ -39,6 +39,7 @@ Route::prefix('restaurant')->group(function () {
         ->name('menu.destroy');
 
     Route::get('orders', [RestaurantOrderController::class, 'showOrders'])->middleware('auth:restaurant')->name('restaurant.orders');
+    Route::get('orders/{orderId}', [RestaurantOrderController::class, 'showOrderDetails'])->middleware('auth:restaurant')->name('restaurant.orders.details');
 
     Route::get('download-sample', function () {
     return response()->download(
