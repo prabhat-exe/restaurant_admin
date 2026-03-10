@@ -30,7 +30,14 @@
         </div>
     @endif
 
-    <div class="mb-4 flex items-center justify-end gap-3">
+    <div class="mb-4 flex items-center justify-end">
+        <a href="{{ route('restaurant.items.create') }}"
+            class="inline-flex items-center rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600 transition">
+            Add New Item
+        </a>
+    </div>
+
+    {{-- <div class="mb-4 flex items-center justify-end gap-3">
         @if($hasMenu)
             <form method="POST" action="{{ route('menu.destroy') }}"
                 onsubmit="
@@ -56,7 +63,7 @@
                 Import Menu
             </a>
         @endif
-    </div>
+    </div> --}}
 
 <div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-theme-sm dark:border-gray-800 dark:bg-gray-900">
         <div class="overflow-x-auto">
@@ -70,6 +77,7 @@
                         <th class="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">Status</th>
                         <th class="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">Variations/Addons</th>
                         <th class="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">Created At</th>
+                        <th class="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">Actions</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
@@ -166,10 +174,27 @@
                                 </div>
                             </td>
                             <td class="px-4 py-3">{{ $item->created_at->format('d M Y') }}</td>
+                            <td class="px-4 py-3">
+                                <div class="flex items-center gap-2">
+                                    <a href="{{ route('restaurant.items.edit', $item) }}"
+                                        class="inline-flex items-center rounded-md bg-warning-100 px-3 py-1.5 text-xs font-semibold text-warning-700 hover:bg-warning-200">
+                                        Edit
+                                    </a>
+                                    <form method="POST" action="{{ route('restaurant.items.destroy', $item) }}"
+                                        onsubmit="return confirm('Delete this item permanently?')">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit"
+                                            class="inline-flex items-center rounded-md bg-error-100 px-3 py-1.5 text-xs font-semibold text-error-700 hover:bg-error-200">
+                                            Delete
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="7" class="px-4 py-6 text-center text-gray-500">No Items Found</td>
+                            <td colspan="8" class="px-4 py-6 text-center text-gray-500">No Items Found</td>
                         </tr>
                     @endforelse
                 </tbody>

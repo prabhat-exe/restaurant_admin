@@ -15,6 +15,7 @@ use App\Models\ItemAddon;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Imports\MenuExcelImport;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Validation\Rule;
 
 
 
@@ -233,55 +234,55 @@ class MenuImportController extends Controller
         // -----------------------------
         // 3️⃣ PDF IMPORT (AI Based)
         // -----------------------------
-        if ($request->hasFile('pdf_file')) {
-            // dd($request->all());
+        // if ($request->hasFile('pdf_file')) {
+        //     // dd($request->all());
 
-            // dd('hello to check the pdf upload file ');
-            $request->validate([
-                'pdf_file' => 'required|mimes:pdf|max:10240',
-            ]);
+        //     // dd('hello to check the pdf upload file ');
+        //     $request->validate([
+        //         'pdf_file' => 'required|mimes:pdf|max:10240',
+        //     ]);
 
-            $restaurant = auth('restaurant')->user();
+        //     $restaurant = auth('restaurant')->user();
 
-            try {
+        //     try {
 
-                // Send PDF to AI service
-                $structuredJson = $this->sendPdfToAi(
-                    $request->file('pdf_file'),
-                    $restaurant->id
-                );
+        //         // Send PDF to AI service
+        //         $structuredJson = $this->sendPdfToAi(
+        //             $request->file('pdf_file'),
+        //             $restaurant->id
+        //         );
 
-                // Validate AI response
-                if (
-                    !$structuredJson ||
-                    !isset($structuredJson['Category_data']) ||
-                    !is_array($structuredJson['Category_data'])
-                ) {
-                    return back()->with('error', 'AI failed to extract valid menu data from PDF.');
-                }
+        //         // Validate AI response
+        //         if (
+        //             !$structuredJson ||
+        //             !isset($structuredJson['Category_data']) ||
+        //             !is_array($structuredJson['Category_data'])
+        //         ) {
+        //             return back()->with('error', 'AI failed to extract valid menu data from PDF.');
+        //         }
 
-                // Store menu using your existing JSON logic
-                DB::transaction(function () use ($structuredJson, $restaurant) {
-                    $this->storeMenuFromJson($structuredJson, $restaurant);
-                });
+        //         // Store menu using your existing JSON logic
+        //         DB::transaction(function () use ($structuredJson, $restaurant) {
+        //             $this->storeMenuFromJson($structuredJson, $restaurant);
+        //         });
 
-                // Trigger AI reindex
-                $this->triggerReindex($restaurant->id);
+        //         // Trigger AI reindex
+        //         $this->triggerReindex($restaurant->id);
 
-                return redirect()
-                    ->route('restaurant.dashboard')
-                    ->with('success', 'PDF menu imported successfully');
+        //         return redirect()
+        //             ->route('restaurant.dashboard')
+        //             ->with('success', 'PDF menu imported successfully');
 
-            } catch (\Throwable $e) {
+        //     } catch (\Throwable $e) {
 
-                logger()->error('PDF import failed', [
-                    'restaurant_id' => $restaurant->id,
-                    'error' => $e->getMessage(),
-                ]);
+        //         logger()->error('PDF import failed', [
+        //             'restaurant_id' => $restaurant->id,
+        //             'error' => $e->getMessage(),
+        //         ]);
 
-                return back()->with('error', 'Something went wrong while importing PDF.');
-            }
-        }
+        //         return back()->with('error', 'Something went wrong while importing PDF.');
+        //     }
+        // }
 
         return back()->with('error', 'Please paste JSON or upload Excel file');
     }
@@ -328,6 +329,134 @@ class MenuImportController extends Controller
         return view('restaurant.dashboard', compact('items', 'hasMenu'));
     }
 
+    public function createItem()
+    {
+        $restaurant = auth('restaurant')->user();
+
+        $categories = Category::query()
+            ->where('restaurant_id', $restaurant->id)
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        $addonItems = MenuItem::query()
+            ->where('restaurant_id', $restaurant->id)
+            ->orderBy('name')
+            ->get(['id', 'name', 'price']);
+
+        return view('restaurant.item_form', [
+            'item' => null,
+            'categories' => $categories,
+            'addonItems' => $addonItems,
+            'existingVariations' => collect(),
+            'existingAddons' => collect(),
+        ]);
+    }
+
+    public function storeItem(Request $request)
+    {
+        $restaurant = auth('restaurant')->user();
+        $validated = $this->validateItemPayload($request, $restaurant->id);
+
+        DB::transaction(function () use ($validated, $restaurant) {
+            $item = MenuItem::create([
+                'restaurant_id' => $restaurant->id,
+                'category_id' => (int) $validated['category_id'],
+                'name' => $validated['name'],
+                'description' => $validated['description'] ?? null,
+                'price' => $validated['price'] ?? 0,
+                'is_available' => (bool) ($validated['is_available'] ?? true),
+                'image' => $validated['image'] ?? null,
+            ]);
+
+            $this->syncItemRelations($validated, $restaurant->id, $item);
+        });
+
+        $this->triggerReindex($restaurant->id);
+
+        return redirect()
+            ->route('restaurant.dashboard')
+            ->with('success', 'Item added successfully.');
+    }
+
+    public function editItem(MenuItem $item)
+    {
+        $restaurant = auth('restaurant')->user();
+        abort_if((int) $item->restaurant_id !== (int) $restaurant->id, 403);
+
+        $item->load([
+            'variations.variation',
+            'addons.addonItem',
+        ]);
+
+        $categories = Category::query()
+            ->where('restaurant_id', $restaurant->id)
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        $addonItems = MenuItem::query()
+            ->where('restaurant_id', $restaurant->id)
+            ->where('id', '!=', $item->id)
+            ->orderBy('name')
+            ->get(['id', 'name', 'price']);
+
+        return view('restaurant.item_form', [
+            'item' => $item,
+            'categories' => $categories,
+            'addonItems' => $addonItems,
+            'existingVariations' => $item->variations,
+            'existingAddons' => $item->addons,
+        ]);
+    }
+
+    public function updateItem(Request $request, MenuItem $item)
+    {
+        $restaurant = auth('restaurant')->user();
+        abort_if((int) $item->restaurant_id !== (int) $restaurant->id, 403);
+
+        $validated = $this->validateItemPayload($request, $restaurant->id);
+
+        DB::transaction(function () use ($validated, $restaurant, $item) {
+            $item->update([
+                'category_id' => (int) $validated['category_id'],
+                'name' => $validated['name'],
+                'description' => $validated['description'] ?? null,
+                'price' => $validated['price'] ?? 0,
+                'is_available' => (bool) ($validated['is_available'] ?? true),
+                'image' => $validated['image'] ?? null,
+            ]);
+
+            ItemVariation::where('item_id', $item->id)->delete();
+            ItemAddon::where('item_id', $item->id)->delete();
+
+            $this->syncItemRelations($validated, $restaurant->id, $item);
+        });
+
+        $this->triggerReindex($restaurant->id);
+
+        return redirect()
+            ->route('restaurant.dashboard')
+            ->with('success', 'Item updated successfully.');
+    }
+
+    public function destroyItem(MenuItem $item)
+    {
+        $restaurant = auth('restaurant')->user();
+        abort_if((int) $item->restaurant_id !== (int) $restaurant->id, 403);
+
+        DB::transaction(function () use ($item) {
+            ItemAddon::where('item_id', $item->id)->delete();
+            ItemAddon::where('addon_item_id', $item->id)->delete();
+            ItemVariation::where('item_id', $item->id)->delete();
+            $item->delete();
+        });
+
+        $this->triggerReindex((int) $restaurant->id);
+
+        return redirect()
+            ->route('restaurant.dashboard')
+            ->with('success', 'Item deleted successfully.');
+    }
+
     private function triggerReindex(int $restaurantId): void
     {
         $aiBaseUrl = rtrim((string) env('AI_SERVICE_URL', 'http://127.0.0.1:8000'), '/');
@@ -342,6 +471,120 @@ class MenuImportController extends Controller
                 'restaurant_id' => $restaurantId,
                 'error' => $e->getMessage(),
             ]);
+        }
+    }
+
+    private function validateItemPayload(Request $request, int $restaurantId): array
+    {
+        return $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'category_id' => [
+                'required',
+                Rule::exists('categories', 'id')->where(function ($query) use ($restaurantId) {
+                    $query->where('restaurant_id', $restaurantId);
+                }),
+            ],
+            'description' => ['nullable', 'string'],
+            'price' => ['nullable', 'numeric', 'min:0'],
+            'image' => ['nullable', 'string', 'max:2000'],
+            'is_available' => ['nullable', 'boolean'],
+            'variations' => ['nullable', 'array'],
+            'variations.*.variation_name' => ['nullable', 'string', 'max:120'],
+            'variations.*.pos_price' => ['nullable', 'numeric', 'min:0'],
+            'variations.*.web_price' => ['nullable', 'numeric', 'min:0'],
+            'variations.*.mobile_price' => ['nullable', 'numeric', 'min:0'],
+            'addons' => ['nullable', 'array'],
+            'addons.*.addon_item_id' => [
+                'nullable',
+                Rule::exists('menu_items', 'id')->where(function ($query) use ($restaurantId) {
+                    $query->where('restaurant_id', $restaurantId);
+                }),
+            ],
+            'addons.*.addon_name' => ['nullable', 'string', 'max:255'],
+            'addons.*.addon_price' => ['nullable', 'numeric', 'min:0'],
+            'addons.*.pos_price' => ['nullable', 'numeric', 'min:0'],
+            'addons.*.web_price' => ['nullable', 'numeric', 'min:0'],
+            'addons.*.mobile_price' => ['nullable', 'numeric', 'min:0'],
+        ]);
+    }
+
+    private function syncItemRelations(array $validated, int $restaurantId, MenuItem $item): void
+    {
+        $variationRows = $validated['variations'] ?? [];
+        foreach ($variationRows as $variationRow) {
+            $name = trim((string) ($variationRow['variation_name'] ?? ''));
+            if ($name === '') {
+                continue;
+            }
+
+            $variation = Variation::firstOrCreate(
+                [
+                    'created_by' => $restaurantId,
+                    'variation_name' => $name,
+                ],
+                [
+                    'created_by_super_admin' => 0,
+                    'department_id' => null,
+                ]
+            );
+
+            ItemVariation::updateOrCreate(
+                [
+                    'item_id' => $item->id,
+                    'variation_id' => $variation->id,
+                ],
+                [
+                    'user_id' => $restaurantId,
+                    'pos_price' => $variationRow['pos_price'] ?? 0,
+                    'web_price' => $variationRow['web_price'] ?? 0,
+                    'mobile_price' => $variationRow['mobile_price'] ?? 0,
+                ]
+            );
+        }
+
+        $addonRows = $validated['addons'] ?? [];
+        foreach ($addonRows as $addonRow) {
+            $addonItemId = $addonRow['addon_item_id'] ?? null;
+
+            if (empty($addonItemId)) {
+                $addonName = trim((string) ($addonRow['addon_name'] ?? ''));
+                if ($addonName === '') {
+                    continue;
+                }
+
+                $addonItem = MenuItem::firstOrCreate(
+                    [
+                        'restaurant_id' => $restaurantId,
+                        'name' => $addonName,
+                    ],
+                    [
+                        'category_id' => (int) $validated['category_id'],
+                        'description' => null,
+                        'price' => $addonRow['addon_price'] ?? 0,
+                        'is_available' => 1,
+                        'image' => null,
+                    ]
+                );
+
+                $addonItemId = $addonItem->id;
+            }
+
+            if ((int) $addonItemId === (int) $item->id) {
+                continue;
+            }
+
+            ItemAddon::updateOrCreate(
+                [
+                    'item_id' => $item->id,
+                    'addon_item_id' => (int) $addonItemId,
+                ],
+                [
+                    'user_id' => $restaurantId,
+                    'pos_price' => $addonRow['pos_price'] ?? 0,
+                    'web_price' => $addonRow['web_price'] ?? 0,
+                    'mobile_price' => $addonRow['mobile_price'] ?? 0,
+                ]
+            );
         }
     }
 

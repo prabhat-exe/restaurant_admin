@@ -18,15 +18,15 @@
             </div>
 
             <nav class="flex-1 space-y-1 overflow-y-auto px-4 py-4">
-                @php
+                {{-- @php
                     $restaurant = auth('restaurant')->user();
                     $menuExists = \App\Models\MenuItem::where('restaurant_id', $restaurant->id)->exists();
-                @endphp
+                @endphp --}}
                 @foreach(($navLinks ?? []) as $link)
 
-                    @if($link['route'] === 'menu.import.form' && $menuExists)
+                    {{-- @if($link['route'] === 'menu.import.form' && $menuExists)
                         @continue
-                    @endif
+                    @endif --}}
                     @php
                         $isActive = isset($link['active'])
                             ? request()->routeIs($link['active'])

@@ -25,6 +25,26 @@ Route::prefix('restaurant')->group(function () {
         ->middleware('auth:restaurant')
         ->name('restaurant.dashboard');
 
+    Route::get('items/create', [MenuImportController::class, 'createItem'])
+        ->middleware('auth:restaurant')
+        ->name('restaurant.items.create');
+
+    Route::post('items', [MenuImportController::class, 'storeItem'])
+        ->middleware('auth:restaurant')
+        ->name('restaurant.items.store');
+
+    Route::get('items/{item}/edit', [MenuImportController::class, 'editItem'])
+        ->middleware('auth:restaurant')
+        ->name('restaurant.items.edit');
+
+    Route::put('items/{item}', [MenuImportController::class, 'updateItem'])
+        ->middleware('auth:restaurant')
+        ->name('restaurant.items.update');
+
+    Route::delete('items/{item}', [MenuImportController::class, 'destroyItem'])
+        ->middleware('auth:restaurant')
+        ->name('restaurant.items.destroy');
+
 
     Route::get('menu-import', [MenuImportController::class, 'showImportForm'])
         ->middleware('auth:restaurant')
