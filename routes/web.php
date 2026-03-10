@@ -45,6 +45,10 @@ Route::prefix('restaurant')->group(function () {
         ->middleware('auth:restaurant')
         ->name('restaurant.items.destroy');
 
+    Route::get('pos', [MenuImportController::class, 'pos'])
+        ->middleware('auth:restaurant')
+        ->name('restaurant.pos');
+
 
     Route::get('menu-import', [MenuImportController::class, 'showImportForm'])
         ->middleware('auth:restaurant')

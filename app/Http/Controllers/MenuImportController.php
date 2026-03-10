@@ -329,6 +329,11 @@ class MenuImportController extends Controller
         return view('restaurant.dashboard', compact('items', 'hasMenu'));
     }
 
+    public function pos()
+    {
+        return view('restaurant.pos');
+    }
+
     public function createItem()
     {
         $restaurant = auth('restaurant')->user();
