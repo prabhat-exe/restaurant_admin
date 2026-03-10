@@ -13,6 +13,8 @@ use Illuminate\Support\Str;
 
 class CustomerAuthController extends Controller
 {
+    private const STATIC_OTP = '123456';
+
     private function ensureCustomerAuthSchema()
     {
         $required = ['phone_number', 'phone_code', 'first_name', 'last_name', 'api_token', 'otp_code', 'otp_expires_at', 'is_phone_verified'];
@@ -66,7 +68,7 @@ class CustomerAuthController extends Controller
             ]);
         }
 
-        $otp = (string) random_int(100000, 999999);
+        $otp = self::STATIC_OTP;
         $user->otp_code = Hash::make($otp);
         $user->otp_expires_at = Carbon::now()->addMinutes(10);
         $user->save();
@@ -120,7 +122,7 @@ class CustomerAuthController extends Controller
             ], 422);
         }
 
-        if (!Hash::check((string) $request->otp, $user->otp_code)) {
+        if ((string) $request->otp !== self::STATIC_OTP || !Hash::check((string) $request->otp, $user->otp_code)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Invalid OTP',
