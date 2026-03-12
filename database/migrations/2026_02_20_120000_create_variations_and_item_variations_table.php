@@ -16,12 +16,16 @@ return new class extends Migration {
             $table->timestamps();
         });
 
+        if (Schema::hasTable('item_variations')) {
+            Schema::drop('item_variations');
+        }
+
         Schema::create('item_variations', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('item_id');
             $table->unsignedBigInteger('user_id');
             $table->unsignedBigInteger('variation_id');
-            $table->decimal('variation_price', 10, 2);
+            $table->decimal('pos_price', 10, 2)->default(0);
             $table->decimal('web_price', 10, 2);
             $table->decimal('mobile_price', 10, 2);
             $table->timestamps();

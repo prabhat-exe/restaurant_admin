@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\RestaurantAuthController;
 use App\Http\Controllers\MenuImportController;
 use App\Http\Controllers\RestaurantOrderController;
+use App\Http\Controllers\AdminPosController;
 
 
 Route::get('/', function () {
@@ -82,5 +83,10 @@ Route::prefix('admin')->group(function () {
         Route::get('restaurant/create', [\App\Http\Controllers\AdminController::class, 'createRestaurant'])->name('admin.restaurant.create');
         Route::post('restaurant/store', [\App\Http\Controllers\AdminController::class, 'storeRestaurant'])->name('admin.restaurant.store');
         Route::post('restaurant/update/{id}', [\App\Http\Controllers\AdminController::class, 'updateRestaurant'])->name('admin.restaurant.update');
+        Route::get('pos', [AdminPosController::class, 'index'])->name('admin.pos.index');
+        Route::get('pos/create', [AdminPosController::class, 'create'])->name('admin.pos.create');
+        Route::post('pos/store', [AdminPosController::class, 'store'])->name('admin.pos.store');
+        Route::put('pos/{pos}/update', [AdminPosController::class, 'update'])->name('admin.pos.update');
+        Route::post('pos/{pos}/sync-menu', [AdminPosController::class, 'syncMenu'])->name('admin.pos.sync');
     });
 });

@@ -34,9 +34,31 @@ class Restaurant extends Authenticatable
         'country_id',
         'rating',
         'rating_count',
+        'is_pos',
+        'menu_url',
+        'client_id',
+        'public_key',
+        'secret_key',
+        'last_synced_at',
+        'last_sync_status',
+        'last_sync_error',
     ];
 
     protected $hidden = [
         'password',
     ];
+
+    protected $casts = [
+        'is_pos' => 'boolean',
+        'is_active' => 'boolean',
+        'last_synced_at' => 'datetime',
+        'client_id' => 'encrypted',
+        'public_key' => 'encrypted',
+        'secret_key' => 'encrypted',
+    ];
+
+    public function posSystems()
+    {
+        return $this->hasMany(PosSystem::class);
+    }
 }

@@ -128,6 +128,8 @@ class MenuImportController extends Controller
             }
 
             DB::transaction(function () use ($json, $restaurant) {
+                $sourceItemMap = [];
+                $relationQueue = [];
 
                 // -----------------------------
                 // YOUR EXISTING JSON LOGIC
@@ -201,26 +203,39 @@ class MenuImportController extends Controller
                         ]);
 
                         foreach ($subCategoryData['item_data'] as $itemData) {
-
-                            $imageUrl = null;
-
-                            if (!empty($itemData['item_attachment'])) {
-                                $imageUrl =
-                                    $itemData['item_attachment']['base_url'] .
-                                    $itemData['item_attachment']['attachment_url'];
-                            }
+                            $imageUrl = $this->resolveJsonItemImage((array) $itemData);
 
                             $item = \App\Models\MenuItem::create([
                                 'restaurant_id' => $restaurant->id,
                                 'category_id' => $category->id,
                                 'name' => $itemData['name'],
-                                'description' => $itemData['description'],
+                                'description' => $itemData['description'] ?? null,
                                 'price' => $itemData['web_price'] ?? 0,
                                 'is_available' => $itemData['status'],
                                 'image' => $imageUrl,
                             ]);
+
+                            if (is_numeric($itemData['item_id'] ?? null)) {
+                                $sourceItemMap[(int) $itemData['item_id']] = (int) $item->id;
+                            }
+
+                            $relationQueue[] = [
+                                'item' => $item,
+                                'category_id' => (int) $category->id,
+                                'item_data' => (array) $itemData,
+                            ];
                         }
                     }
+                }
+
+                foreach ($relationQueue as $queued) {
+                    $this->syncJsonItemRelations(
+                        $restaurant->id,
+                        (int) $queued['category_id'],
+                        $queued['item'],
+                        $queued['item_data'],
+                        $sourceItemMap
+                    );
                 }
             });
 
@@ -511,6 +526,164 @@ class MenuImportController extends Controller
             'addons.*.web_price' => ['nullable', 'numeric', 'min:0'],
             'addons.*.mobile_price' => ['nullable', 'numeric', 'min:0'],
         ]);
+    }
+
+    private function resolveJsonItemImage(array $itemData): ?string
+    {
+        $direct = $itemData['image'] ?? $itemData['image_url'] ?? null;
+        if (is_string($direct) && $direct !== '') {
+            return $direct;
+        }
+
+        $attachment = $itemData['item_attachment'] ?? $itemData['attachment'] ?? null;
+        if (!is_array($attachment)) {
+            return null;
+        }
+
+        $base = trim((string) ($attachment['base_url'] ?? ''));
+        $path = trim((string) ($attachment['attachment_url'] ?? ''));
+        if ($base === '' && $path === '') {
+            return null;
+        }
+        if ($base === '') {
+            return $path;
+        }
+        if ($path === '') {
+            return $base;
+        }
+
+        return rtrim($base, '/') . '/' . ltrim($path, '/');
+    }
+
+    private function syncJsonItemRelations(
+        int $restaurantId,
+        int $categoryId,
+        MenuItem $item,
+        array $itemData,
+        array $sourceItemMap
+    ): void {
+        $variationRows = $itemData['variations']
+            ?? $itemData['item_variation']
+            ?? $itemData['customize_item_variation']
+            ?? $itemData['variation_data']
+            ?? [];
+
+        if (is_array($variationRows)) {
+            foreach ($variationRows as $variationRow) {
+                if (!is_array($variationRow)) {
+                    continue;
+                }
+
+                $detail = $variationRow['variation_detail'][0] ?? [];
+                $name = trim((string) (
+                    $variationRow['variation_name']
+                    ?? (is_array($detail) ? ($detail['variation_name'] ?? null) : null)
+                    ?? ''
+                ));
+                if ($name === '') {
+                    continue;
+                }
+
+                $variation = Variation::firstOrCreate(
+                    [
+                        'created_by' => $restaurantId,
+                        'variation_name' => $name,
+                    ],
+                    [
+                        'created_by_super_admin' => 0,
+                        'department_id' => null,
+                    ]
+                );
+
+                $base = (float) ($variationRow['variation_price'] ?? 0);
+                ItemVariation::updateOrCreate(
+                    [
+                        'item_id' => $item->id,
+                        'variation_id' => $variation->id,
+                    ],
+                    [
+                        'user_id' => $restaurantId,
+                        'pos_price' => (float) ($variationRow['pos_price'] ?? $base),
+                        'web_price' => (float) ($variationRow['web_price'] ?? $base),
+                        'mobile_price' => (float) ($variationRow['mobile_price'] ?? $base),
+                    ]
+                );
+            }
+        }
+
+        $addonRows = $itemData['addons']
+            ?? $itemData['addon_data']
+            ?? $itemData['add_ons']
+            ?? $itemData['addon_items']
+            ?? [];
+
+        if (is_array($addonRows)) {
+            foreach ($addonRows as $addonRow) {
+                if (!is_array($addonRow)) {
+                    continue;
+                }
+
+                $addonItemData = is_array($addonRow['addon_item'] ?? null) ? $addonRow['addon_item'] : [];
+                $sourceAddonItemId = $addonRow['addon_item_id'] ?? ($addonItemData['item_id'] ?? null);
+                $addonItemId = null;
+
+                if (is_numeric($sourceAddonItemId)) {
+                    $addonItemId = $sourceItemMap[(int) $sourceAddonItemId] ?? null;
+                }
+
+                if (!$addonItemId) {
+                    $addonName = trim((string) (
+                        $addonRow['addon_name']
+                        ?? $addonRow['name']
+                        ?? ($addonItemData['name'] ?? '')
+                    ));
+
+                    if ($addonName === '') {
+                        continue;
+                    }
+
+                    $addonPrice = (float) (
+                        $addonRow['addon_price']
+                        ?? $addonRow['offered_price']
+                        ?? ($addonItemData['price'] ?? 0)
+                    );
+
+                    $addonItem = MenuItem::firstOrCreate(
+                        [
+                            'restaurant_id' => $restaurantId,
+                            'name' => $addonName,
+                        ],
+                        [
+                            'category_id' => $categoryId,
+                            'description' => null,
+                            'price' => $addonPrice,
+                            'is_available' => 1,
+                            'image' => $this->resolveJsonItemImage($addonItemData),
+                        ]
+                    );
+
+                    $addonItemId = (int) $addonItem->id;
+                }
+
+                if ((int) $addonItemId === (int) $item->id) {
+                    continue;
+                }
+
+                $base = (float) ($addonRow['addon_price'] ?? $addonRow['offered_price'] ?? 0);
+                ItemAddon::updateOrCreate(
+                    [
+                        'item_id' => $item->id,
+                        'addon_item_id' => (int) $addonItemId,
+                    ],
+                    [
+                        'user_id' => $restaurantId,
+                        'pos_price' => (float) ($addonRow['pos_price'] ?? $base),
+                        'web_price' => (float) ($addonRow['web_price'] ?? $addonRow['web_offered_price'] ?? $base),
+                        'mobile_price' => (float) ($addonRow['mobile_price'] ?? $addonRow['mob_offered_price'] ?? $base),
+                    ]
+                );
+            }
+        }
     }
 
     private function syncItemRelations(array $validated, int $restaurantId, MenuItem $item): void

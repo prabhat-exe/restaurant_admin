@@ -8,6 +8,7 @@ use App\Models\ItemVariation;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Restaurant;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\DB;
@@ -20,8 +21,23 @@ class OrderController extends Controller
      */
     public function place(Request $request)
     {
+        $authUser = $this->resolveUserFromRequest($request);
+        if (!$authUser) {
+            return response()->json([
+                'success' => false,
+                'errors' => ['Unauthorized. Please login first.'],
+            ], 401);
+        }
+
+        if ($request->filled('user_id') && (int) $request->user_id !== (int) $authUser->id) {
+            return response()->json([
+                'success' => false,
+                'errors' => ['User mismatch. Please login again.'],
+            ], 403);
+        }
+
         $validator = Validator::make($request->all(), [
-            'user_id' => 'required|integer',
+            'user_id' => 'nullable|integer',
             'store_id' => 'required|integer',
             'store_name' => 'required|string',
             'order_category' => 'required|integer',
@@ -170,7 +186,7 @@ class OrderController extends Controller
             Order::create([
                 'order_id' => $orderId,
                 'token_number' => $request->token_number ?? 1,
-                'user_id' => $request->user_id,
+                'user_id' => $authUser->id,
                 'store_id' => $restaurant->id,
                 'order_category' => $request->order_category,
                 'order_type' => $request->order_type,
@@ -200,7 +216,7 @@ class OrderController extends Controller
                 OrderItem::create([
                     'order_id' => $orderId,
                     'item_id' => $item['item_id'],
-                    'user_id' => $request->user_id,
+                    'user_id' => $authUser->id,
                     'store_id' => $restaurant->id,
                     'item_name' => $item['item_name'],
                     'price' => $item['price'],
@@ -273,5 +289,18 @@ class OrderController extends Controller
             'order_id' => $order_id,
             'items' => $items,
         ]);
+    }
+
+    private function resolveUserFromRequest(Request $request): ?User
+    {
+        $authHeader = $request->header('Authorization');
+        if ($authHeader && str_starts_with($authHeader, 'Bearer ')) {
+            $token = trim(substr($authHeader, 7));
+            if ($token !== '') {
+                return User::where('api_token', $token)->first();
+            }
+        }
+
+        return null;
     }
 }
