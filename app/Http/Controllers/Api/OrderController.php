@@ -9,6 +9,7 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Restaurant;
 use App\Models\User;
+use App\Models\Variation;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\DB;
@@ -85,10 +86,22 @@ class OrderController extends Controller
             ->get()
             ->groupBy('item_id');
 
+        $variationIds = $itemVariations->flatten()->pluck('variation_id')->unique()->values()->all();
+        $variationsById = Variation::query()
+            ->whereIn('id', $variationIds)
+            ->get(['id', 'variation_name'])
+            ->keyBy('id');
+
         $itemAddons = ItemAddon::query()
             ->whereIn('item_id', $itemIds)
             ->get()
             ->groupBy('item_id');
+
+        $addonIds = $itemAddons->flatten()->pluck('addon_item_id')->unique()->values()->all();
+        $addonItemsById = MenuItem::query()
+            ->whereIn('id', $addonIds)
+            ->get(['id', 'name'])
+            ->keyBy('id');
 
         $computedTotal = 0.0;
         $computedQuantity = 0;
@@ -106,6 +119,8 @@ class OrderController extends Controller
             }
 
             $serverUnitPrice = (float) $menuItem->price;
+            $selectedVariationPayload = null;
+            $addonPayload = [];
 
             $selectedVariation = $item['selected_variation'] ?? null;
             if (!empty($selectedVariation['variation_id'])) {
@@ -119,6 +134,12 @@ class OrderController extends Controller
                     ], 422);
                 }
                 $serverUnitPrice = (float) $variationRow->web_price;
+                $variationMeta = $variationsById->get((int) $selectedVariation['variation_id']);
+                $selectedVariationPayload = [
+                    'variation_id' => (int) $variationRow->variation_id,
+                    'variation_name' => $variationMeta?->variation_name ?? ($selectedVariation['variation_name'] ?? 'Variation'),
+                    'variation_price' => $serverUnitPrice,
+                ];
             }
 
             $addons = collect($item['addons'] ?? []);
@@ -133,7 +154,14 @@ class OrderController extends Controller
                             'errors' => ["Invalid addon {$addonId} for item_id {$menuItem->id}"],
                         ], 422);
                     }
-                    $serverUnitPrice += (float) $mapping->web_price;
+                    $addonPrice = (float) $mapping->web_price;
+                    $serverUnitPrice += $addonPrice;
+                    $addonItem = $addonItemsById->get($addonId);
+                    $addonPayload[] = [
+                        'addon_id' => $addonId,
+                        'addon_name' => $addonItem?->name ?? ($addon['addon_name'] ?? 'Addon'),
+                        'price' => $addonPrice,
+                    ];
                 }
             }
 
@@ -165,6 +193,8 @@ class OrderController extends Controller
                 'notes' => $item['notes'] ?? '',
                 'customize_status' => $item['customize_status'] ?? 0,
                 'addon_status' => $item['addon_status'] ?? 0,
+                'selected_variation_json' => $selectedVariationPayload,
+                'addons_json' => $addonPayload,
                 'is_meal' => $item['is_meal'] ?? 0,
             ];
         }
@@ -232,6 +262,8 @@ class OrderController extends Controller
                     'notes' => $item['notes'] ?? '',
                     'customize_status' => $item['customize_status'] ?? 0,
                     'addon_status' => $item['addon_status'] ?? 0,
+                    'selected_variation_json' => $item['selected_variation_json'] ?? null,
+                    'addons_json' => $item['addons_json'] ?? [],
                     'is_meal' => $item['is_meal'] ?? 0,
                 ]);
             }

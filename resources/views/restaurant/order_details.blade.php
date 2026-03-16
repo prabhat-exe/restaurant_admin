@@ -71,6 +71,7 @@
                             <th class="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">Qty</th>
                             <th class="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">Price</th>
                             <th class="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">Total</th>
+                            <th class="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">Customization</th>
                             <th class="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">Notes</th>
                             <th class="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">Status</th>
                         </tr>
@@ -84,6 +85,30 @@
                                 <td class="px-4 py-3">{{ $item->quantity }}</td>
                                 <td class="px-4 py-3">Rs {{ $item->price }}</td>
                                 <td class="px-4 py-3">Rs {{ $item->total_price }}</td>
+                                <td class="px-4 py-3">
+                                    @php
+                                        $variation = $item->selected_variation_json ?? [];
+                                        $addons = $item->addons_json ?? [];
+                                    @endphp
+                                    @if(!empty($variation['variation_id']))
+                                        <div class="text-xs text-gray-700 dark:text-gray-300">
+                                            <span class="font-semibold">Variation:</span>
+                                            {{ $variation['variation_name'] ?? 'Variation' }}
+                                            @if(isset($variation['variation_price']))
+                                                (Rs {{ $variation['variation_price'] }})
+                                            @endif
+                                        </div>
+                                    @endif
+                                    @if(!empty($addons))
+                                        <div class="mt-1 text-xs text-gray-700 dark:text-gray-300">
+                                            <span class="font-semibold">Add-ons:</span>
+                                            {{ collect($addons)->map(fn($addon) => ($addon['addon_name'] ?? 'Addon') . (isset($addon['price']) ? ' (Rs ' . $addon['price'] . ')' : ''))->join(', ') }}
+                                        </div>
+                                    @endif
+                                    @if(empty($variation['variation_id']) && empty($addons))
+                                        <span class="text-xs text-gray-500">-</span>
+                                    @endif
+                                </td>
                                 <td class="px-4 py-3">{{ $item->notes ?? '-' }}</td>
                                 <td class="px-4 py-3">
                                     <span class="inline-flex rounded-full bg-success-100 px-2.5 py-1 text-xs font-semibold text-success-700">

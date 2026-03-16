@@ -29,6 +29,13 @@ class OrderItem extends Model
         'notes',
         'customize_status',
         'addon_status',
+        'selected_variation_json',
+        'addons_json',
         'is_meal',
+    ];
+
+    protected $casts = [
+        'selected_variation_json' => 'array',
+        'addons_json' => 'array',
     ];
 }
