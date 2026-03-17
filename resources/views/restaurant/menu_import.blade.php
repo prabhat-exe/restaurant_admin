@@ -7,7 +7,6 @@
     $navLinks = [
         ['label' => 'Items', 'route' => 'restaurant.dashboard'],
         ['label' => 'Orders', 'route' => 'restaurant.orders'],
-        ['label' => 'POS', 'route' => 'restaurant.pos'],
         ['label' => 'Menu Import', 'route' => 'menu.import.form'],
     ];
 @endphp

@@ -307,6 +307,9 @@ class MenuImportController extends Controller
             Variation::where('created_by', $restaurant->id)->delete();
         });
 
+        // Ensure AI files (including embeddings) are refreshed/cleaned after full menu deletion.
+        $this->triggerReindex((int) $restaurant->id);
+
         return redirect()
             ->route('menu.import.form')
             ->with('success', 'Entire menu deleted permanently. You can import a new menu now.');
@@ -465,20 +468,21 @@ class MenuImportController extends Controller
     private function triggerReindex(int $restaurantId): void
     {
         $aiBaseUrl = rtrim((string) env('AI_SERVICE_URL', 'http://127.0.0.1:8000'), '/');
+        $payload = ['restaurant_id' => $restaurantId];
 
-        try {
-            // Call /sync so the AI service runs fetch_menu → json_cleaner → embedding
-            // and then reloads the bot with fresh data files.
-            Http::timeout(120)->post($aiBaseUrl . '/sync', [
-                'restaurant_id' => $restaurantId,
-            ]);
-        } catch (\Throwable $e) {
-            // Do not block admin menu import on AI indexing issues.
-            logger()->warning('AI sync trigger failed', [
-                'restaurant_id' => $restaurantId,
-                'error' => $e->getMessage(),
-            ]);
-        }
+        // Run AI sync after sending HTTP response so menu edit/delete feels instant in UI.
+        dispatch(function () use ($aiBaseUrl, $payload, $restaurantId) {
+            try {
+                Http::connectTimeout(3)
+                    ->timeout(45)
+                    ->post($aiBaseUrl . '/sync', $payload);
+            } catch (\Throwable $e) {
+                logger()->warning('AI sync trigger failed', [
+                    'restaurant_id' => $restaurantId,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        })->afterResponse();
     }
 
     private function validateItemPayload(Request $request, int $restaurantId): array
