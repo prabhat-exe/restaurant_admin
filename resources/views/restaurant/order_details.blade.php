@@ -34,7 +34,7 @@
             </div>
             <div>
                 <p class="text-xs text-gray-500">Total Amount</p>
-                <p class="font-semibold text-gray-800 dark:text-gray-200">Rs {{ $order->total_price ?? 0 }}</p>
+                <p class="font-semibold text-gray-800 dark:text-gray-200">{{ $currencySymbol }} {{ $order->total_price ?? 0 }}</p>
             </div>
             <div>
                 <p class="text-xs text-gray-500">Order Date</p>
@@ -83,8 +83,8 @@
                                 <td class="px-4 py-3 font-medium">{{ $item->item_name }}</td>
                                 <td class="px-4 py-3">{{ $item->category_name ?? '-' }}</td>
                                 <td class="px-4 py-3">{{ $item->quantity }}</td>
-                                <td class="px-4 py-3">Rs {{ $item->price }}</td>
-                                <td class="px-4 py-3">Rs {{ $item->total_price }}</td>
+                                <td class="px-4 py-3">{{ $currencySymbol }} {{ $item->price }}</td>
+                                <td class="px-4 py-3">{{ $currencySymbol }} {{ $item->total_price }}</td>
                                 <td class="px-4 py-3">
                                     @php
                                         $variation = $item->selected_variation_json ?? [];
@@ -95,14 +95,14 @@
                                             <span class="font-semibold">Variation:</span>
                                             {{ $variation['variation_name'] ?? 'Variation' }}
                                             @if(isset($variation['variation_price']))
-                                                (Rs {{ $variation['variation_price'] }})
+                                                ({{ $currencySymbol }} {{ $variation['variation_price'] }})
                                             @endif
                                         </div>
                                     @endif
                                     @if(!empty($addons))
                                         <div class="mt-1 text-xs text-gray-700 dark:text-gray-300">
                                             <span class="font-semibold">Add-ons:</span>
-                                            {{ collect($addons)->map(fn($addon) => ($addon['addon_name'] ?? 'Addon') . (isset($addon['price']) ? ' (Rs ' . $addon['price'] . ')' : ''))->join(', ') }}
+                                            {{ collect($addons)->map(fn($addon) => ($addon['addon_name'] ?? 'Addon') . (isset($addon['price']) ? ' (' . $currencySymbol . ' ' . $addon['price'] . ')' : ''))->join(', ') }}
                                         </div>
                                     @endif
                                     @if(empty($variation['variation_id']) && empty($addons))

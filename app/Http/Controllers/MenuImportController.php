@@ -113,7 +113,7 @@ class MenuImportController extends Controller
 
             return redirect()
                 ->route('restaurant.dashboard')
-                ->with('success', 'Excel menu imported successfully');
+                ->with('success', 'Excel menu imported successfully. Please be patient while embedding is generating in background.');
         }
 
         // -----------------------------
@@ -127,7 +127,8 @@ class MenuImportController extends Controller
                 return back()->with('error', 'Invalid JSON format');
             }
 
-            DB::transaction(function () use ($json, $restaurant) {
+            $importedItems = DB::transaction(function () use ($json, $restaurant) {
+                $itemCount = 0;
 
                 // -----------------------------
                 // YOUR EXISTING JSON LOGIC
@@ -149,7 +150,7 @@ class MenuImportController extends Controller
                         'country_currency' => $storeData['country_currency'] ?? null,
                         'country_id' => $storeData['country_id'] ?? null,
                         'postal_code' => $storeData['postal_code'] ?? null,
-                        'cook_time' => $storeData['cook_time'] ?? null,
+                        'cook_time' => $this->normalizeCookTime($storeData['cook_time'] ?? null),
                         'rating' => $storeData['rating'] ?? null,
                         'rating_count' => $storeData['rating_count'] ?? null,
                         'is_active' => $storeData['status'] ?? 1,
@@ -210,25 +211,28 @@ class MenuImportController extends Controller
                                     $itemData['item_attachment']['attachment_url'];
                             }
 
-                            $item = \App\Models\MenuItem::create([
+                            \App\Models\MenuItem::create([
                                 'restaurant_id' => $restaurant->id,
                                 'category_id' => $category->id,
                                 'name' => $itemData['name'],
                                 'description' => $itemData['description'],
                                 'price' => $itemData['web_price'] ?? 0,
-                                'is_available' => $itemData['status'],
+                                'is_available' => $this->normalizeItemAvailability($itemData),
                                 'image' => $imageUrl,
                             ]);
+                            $itemCount++;
                         }
                     }
                 }
+
+                return $itemCount;
             });
 
             $this->triggerReindex($restaurant->id);
 
             return redirect()
                 ->route('restaurant.dashboard')
-                ->with('success', 'JSON menu imported successfully');
+                ->with('success', "JSON menu imported successfully ({$importedItems} items. Please be patient while embedding is generating in background ).");
         }
         
         // -----------------------------
@@ -307,8 +311,8 @@ class MenuImportController extends Controller
             Variation::where('created_by', $restaurant->id)->delete();
         });
 
-        // Ensure AI files (including embeddings) are refreshed/cleaned after full menu deletion.
-        $this->triggerReindex((int) $restaurant->id);
+        // Remove all AI artifacts for this restaurant (menu.json, cleaned/enriched, embeddings, etc.).
+        $this->triggerPurge((int) $restaurant->id);
 
         return redirect()
             ->route('menu.import.form')
@@ -483,6 +487,82 @@ class MenuImportController extends Controller
                 ]);
             }
         })->afterResponse();
+    }
+
+    private function triggerPurge(int $restaurantId): void
+    {
+        $aiBaseUrl = rtrim((string) env('AI_SERVICE_URL', 'http://127.0.0.1:8000'), '/');
+        $payload = ['restaurant_id' => $restaurantId];
+
+        dispatch(function () use ($aiBaseUrl, $payload, $restaurantId) {
+            try {
+                Http::connectTimeout(3)
+                    ->timeout(45)
+                    ->post($aiBaseUrl . '/purge', $payload);
+            } catch (\Throwable $e) {
+                logger()->warning('AI purge trigger failed', [
+                    'restaurant_id' => $restaurantId,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        })->afterResponse();
+    }
+
+    private function normalizeCookTime(mixed $cookTime): ?int
+    {
+        if ($cookTime === null || $cookTime === '') {
+            return null;
+        }
+
+        if (is_int($cookTime)) {
+            return $cookTime >= 0 ? $cookTime : null;
+        }
+
+        if (is_numeric($cookTime)) {
+            $minutes = (int) $cookTime;
+            return $minutes >= 0 ? $minutes : null;
+        }
+
+        if (is_string($cookTime) && preg_match('/\d+/', $cookTime, $matches)) {
+            $minutes = (int) $matches[0];
+            return $minutes >= 0 ? $minutes : null;
+        }
+
+        return null;
+    }
+
+    private function normalizeItemAvailability(array $itemData): bool
+    {
+        $status = $itemData['status'] ?? null;
+
+        if (is_string($status)) {
+            $normalized = strtolower(trim($status));
+
+            if (in_array($normalized, ['active', 'enabled', 'available', 'open'], true)) {
+                return true;
+            }
+
+            if (in_array($normalized, ['inactive', 'disabled', 'unavailable', 'closed'], true)) {
+                return false;
+            }
+        }
+
+        if ($status === true || $status === 1 || $status === '1') {
+            return true;
+        }
+
+        if ($status === false || $status === 0 || $status === '0' || $status === null || $status === '') {
+            foreach (['web_enable', 'pos_enable', 'mobile_enable'] as $flag) {
+                $value = $itemData[$flag] ?? null;
+                if ($value === true || $value === 1 || $value === '1') {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        return (bool) $status;
     }
 
     private function validateItemPayload(Request $request, int $restaurantId): array

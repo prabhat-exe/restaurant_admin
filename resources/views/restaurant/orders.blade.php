@@ -37,7 +37,7 @@
                                 <td class="px-4 py-3">
                                     {{ $order->user->name ?? 'Guest User' }}
                                 </td>
-                                <td class="px-4 py-3">Rs {{ $order->total_price ?? 0 }}</td>
+                                <td class="px-4 py-3">{{ $currencySymbol }} {{ $order->total_price ?? 0 }}</td>
                                 <td class="px-4 py-3">
                                     <span class="inline-flex rounded-full bg-success-100 px-2.5 py-1 text-xs font-semibold text-success-700">
                                         {{ $order->order_status == 4 ? 'Placed' : 'In Progress' }}

@@ -22,7 +22,7 @@ class RestaurantMenuApiController extends Controller
         $restaurants = Restaurant::query()
             ->where('is_active', 1)
             ->orderBy('name')
-            ->get(['id', 'name', 'logo', 'is_active']);
+            ->get(['id', 'name', 'logo', 'is_active', 'country_currency']);
 
         return response()->json([
             'success' => true,

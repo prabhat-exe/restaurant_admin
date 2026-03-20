@@ -101,7 +101,7 @@
                                     }
                                 @endphp
 
-                                Rs {{ $displayPrice ?? 0 }}
+                                {{ $currencySymbol }} {{ $displayPrice ?? 0 }}
                             </td>
                             <td class="px-4 py-3">
                                 @if($item->is_available)
@@ -129,9 +129,9 @@
                                                         @foreach($item->variations as $var)
                                                             <tr class="border-t border-gray-100">
                                                                 <td class="px-2 py-1">{{ $var->variation->variation_name ?? '-' }}</td>
-                                                                <td class="px-2 py-1">Rs {{ $var->pos_price }}</td>
-                                                                <td class="px-2 py-1">Rs {{ $var->web_price }}</td>
-                                                                <td class="px-2 py-1">Rs {{ $var->mobile_price }}</td>
+                                                                <td class="px-2 py-1">{{ $currencySymbol }} {{ $var->pos_price }}</td>
+                                                                <td class="px-2 py-1">{{ $currencySymbol }} {{ $var->web_price }}</td>
+                                                                <td class="px-2 py-1">{{ $currencySymbol }} {{ $var->mobile_price }}</td>
                                                             </tr>
                                                         @endforeach
                                                     </tbody>
@@ -159,9 +159,9 @@
                                                         @foreach($item->addons as $addon)
                                                             <tr class="border-t border-gray-100">
                                                                 <td class="px-2 py-1">{{ $addon->addonItem->name ?? '-' }}</td>
-                                                                <td class="px-2 py-1">Rs {{ $addon->pos_price }}</td>
-                                                                <td class="px-2 py-1">Rs {{ $addon->web_price }}</td>
-                                                                <td class="px-2 py-1">Rs {{ $addon->mobile_price }}</td>
+                                                                <td class="px-2 py-1">{{ $currencySymbol }} {{ $addon->pos_price }}</td>
+                                                                <td class="px-2 py-1">{{ $currencySymbol }} {{ $addon->web_price }}</td>
+                                                                <td class="px-2 py-1">{{ $currencySymbol }} {{ $addon->mobile_price }}</td>
                                                             </tr>
                                                         @endforeach
                                                     </tbody>
