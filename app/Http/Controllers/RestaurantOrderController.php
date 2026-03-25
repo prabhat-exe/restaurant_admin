@@ -24,7 +24,8 @@ class RestaurantOrderController extends Controller
     {
         $restaurantId = auth('restaurant')->user()->id;
 
-        $order = Order::where('store_id', $restaurantId)
+        $order = Order::with('user')
+            ->where('store_id', $restaurantId)
             ->where('order_id', $orderId)
             ->firstOrFail();
 
@@ -33,6 +34,8 @@ class RestaurantOrderController extends Controller
             ->orderBy('id')
             ->get();
 
+        // dd($order->user->name);
+        // dd($order, $orderItems);
         return view('restaurant.order_details', compact('order', 'orderItems'));
     }
 }

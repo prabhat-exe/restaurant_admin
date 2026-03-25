@@ -7,7 +7,6 @@
     $navLinks = [
         ['label' => 'Items', 'route' => 'restaurant.dashboard'],
         ['label' => 'Orders', 'route' => 'restaurant.orders', 'active' => 'restaurant.orders*'],
-        ['label' => 'POS', 'route' => 'restaurant.pos'],
         ['label' => 'Menu Import', 'route' => 'menu.import.form'],
     ];
 @endphp
@@ -30,7 +29,7 @@
             </div>
             <div>
                 <p class="text-xs text-gray-500">Customer</p>
-                <p class="font-semibold text-gray-800 dark:text-gray-200">{{ $order->customer_name ?? ('User #' . ($order->user_id ?? 'N/A')) }}</p>
+                <p class="font-semibold text-gray-800 dark:text-gray-200">{{ $order->user->name ?? ('User #' . ($order->user_id ?? 'N/A')) }}</p>
             </div>
             <div>
                 <p class="text-xs text-gray-500">Total Amount</p>
