@@ -10,6 +10,7 @@ use App\Models\OrderItem;
 use App\Models\Restaurant;
 use App\Models\User;
 use App\Models\Variation;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\DB;
@@ -45,6 +46,12 @@ class OrderController extends Controller
             'order_type' => 'required|integer',
             'total_quantity' => 'required|integer',
             'total_price' => 'required|numeric',
+            'selectedDate' => 'nullable|string',
+            'time' => 'nullable|string',
+            'pre_order_status' => 'nullable|integer',
+            'delivery_address' => 'required|string|max:1000',
+            'address_lat' => 'required|numeric|between:-90,90',
+            'address_long' => 'required|numeric|between:-180,180',
             'items' => 'required|array|min:1',
             'items.*.item_id' => 'required|integer',
             'items.*.item_name' => 'required|string',
@@ -64,6 +71,36 @@ class OrderController extends Controller
             return response()->json([
                 'success' => false,
                 'errors' => ['Invalid or inactive store_id'],
+            ], 422);
+        }
+
+        if (
+            $restaurant->latitude === null ||
+            $restaurant->longitude === null ||
+            $restaurant->delivery_radius_km === null ||
+            (float) $restaurant->delivery_radius_km <= 0
+        ) {
+            return response()->json([
+                'success' => false,
+                'errors' => ['This restaurant has not configured its delivery radius yet.'],
+            ], 422);
+        }
+
+        $deliveryDistanceKm = $this->calculateDistanceKm(
+            (float) $restaurant->latitude,
+            (float) $restaurant->longitude,
+            (float) $request->address_lat,
+            (float) $request->address_long
+        );
+
+        if ($deliveryDistanceKm > (float) $restaurant->delivery_radius_km) {
+            return response()->json([
+                'success' => false,
+                'errors' => ['Selected delivery address is outside the restaurant delivery radius.'],
+                'meta' => [
+                    'delivery_distance_km' => round($deliveryDistanceKm, 2),
+                    'delivery_radius_km' => (float) $restaurant->delivery_radius_km,
+                ],
             ], 422);
         }
 
@@ -208,6 +245,25 @@ class OrderController extends Controller
             ], 422);
         }
 
+        $selectedDate = trim((string) ($request->selectedDate ?? ''));
+        $selectedTime = trim((string) ($request->time ?? ''));
+        $preOrderStatus = 0;
+
+        if ($selectedDate !== '') {
+            try {
+                $scheduledAt = $selectedTime !== ''
+                    ? Carbon::parse($selectedDate . ' ' . $selectedTime)
+                    : Carbon::parse($selectedDate)->endOfDay();
+
+                $preOrderStatus = $scheduledAt->greaterThan(Carbon::now()) ? 1 : 0;
+            } catch (\Throwable $e) {
+                return response()->json([
+                    'success' => false,
+                    'errors' => ['Invalid selectedDate/time for preorder'],
+                ], 422);
+            }
+        }
+
         DB::beginTransaction();
 
         try {
@@ -225,10 +281,12 @@ class OrderController extends Controller
                 'delivery_address' => $request->delivery_address ?? '',
                 'address_lat' => $request->address_lat ?? '',
                 'address_long' => $request->address_long ?? '',
+                'distance' => round($deliveryDistanceKm, 2),
                 'delivery_charges' => $request->delivery_charges ?? 0,
                 'service_charge' => $request->service_charge ?? 0,
-                'selectedDate' => $request->selectedDate ?? '',
-                'time' => $request->time ?? '',
+                'selectedDate' => $selectedDate,
+                'time' => $selectedTime,
+                'pre_order_status' => $preOrderStatus,
                 'transaction_id' => $request->transaction_id ?? '',
                 'ip_address' => $request->ip_address ?? '',
                 'store_name' => $restaurant->name,
@@ -334,5 +392,18 @@ class OrderController extends Controller
         }
 
         return null;
+    }
+
+    private function calculateDistanceKm(float $lat1, float $lng1, float $lat2, float $lng2): float
+    {
+        $earthRadiusKm = 6371;
+        $dLat = deg2rad($lat2 - $lat1);
+        $dLng = deg2rad($lng2 - $lng1);
+
+        $a = sin($dLat / 2) * sin($dLat / 2)
+            + cos(deg2rad($lat1)) * cos(deg2rad($lat2))
+            * sin($dLng / 2) * sin($dLng / 2);
+
+        return $earthRadiusKm * (2 * atan2(sqrt($a), sqrt(1 - $a)));
     }
 }

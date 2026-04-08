@@ -26,6 +26,14 @@ Route::prefix('restaurant')->group(function () {
         ->middleware('auth:restaurant')
         ->name('restaurant.dashboard');
 
+    Route::get('delivery', [MenuImportController::class, 'delivery'])
+        ->middleware('auth:restaurant')
+        ->name('restaurant.delivery');
+
+    Route::post('delivery-settings', [MenuImportController::class, 'updateDeliverySettings'])
+        ->middleware('auth:restaurant')
+        ->name('restaurant.delivery.settings');
+
     Route::get('items/create', [MenuImportController::class, 'createItem'])
         ->middleware('auth:restaurant')
         ->name('restaurant.items.create');

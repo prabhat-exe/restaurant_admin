@@ -28,6 +28,7 @@ class Restaurant extends Authenticatable
         'description',
         'latitude',
         'longitude',
+        'delivery_radius_km',
         'country_currency',
         'postal_code',
         'cook_time',
@@ -51,6 +52,9 @@ class Restaurant extends Authenticatable
     protected $casts = [
         'is_pos' => 'boolean',
         'is_active' => 'boolean',
+        'latitude' => 'decimal:7',
+        'longitude' => 'decimal:7',
+        'delivery_radius_km' => 'decimal:2',
         'last_synced_at' => 'datetime',
         'client_id' => 'encrypted',
         'public_key' => 'encrypted',

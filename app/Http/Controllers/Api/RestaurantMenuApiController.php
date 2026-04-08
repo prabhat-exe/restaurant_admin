@@ -14,15 +14,39 @@ use App\Models\Variation;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Schema;
 
 class RestaurantMenuApiController extends Controller
 {
     public function restaurants()
     {
+        $hasDeliveryRadiusColumn = Schema::hasColumn('restaurants', 'delivery_radius_km');
+        $columns = [
+            'id',
+            'name',
+            'logo',
+            'address',
+            'is_active',
+            'country_currency',
+            'latitude',
+            'longitude',
+        ];
+
+        if ($hasDeliveryRadiusColumn) {
+            $columns[] = 'delivery_radius_km';
+        }
+
         $restaurants = Restaurant::query()
             ->where('is_active', 1)
             ->orderBy('name')
-            ->get(['id', 'name', 'logo', 'is_active', 'country_currency']);
+            ->get($columns)
+            ->map(function ($restaurant) use ($hasDeliveryRadiusColumn) {
+                if (!$hasDeliveryRadiusColumn) {
+                    $restaurant->setAttribute('delivery_radius_km', null);
+                }
+
+                return $restaurant;
+            });
 
         return response()->json([
             'success' => true,
@@ -32,6 +56,7 @@ class RestaurantMenuApiController extends Controller
 
     public function menu($restaurantId)
     {
+        $hasDeliveryRadiusColumn = Schema::hasColumn('restaurants', 'delivery_radius_km');
         $restaurant = Restaurant::query()
             ->where('id', $restaurantId)
             ->where('is_active', 1)
@@ -182,6 +207,15 @@ class RestaurantMenuApiController extends Controller
             'success' => true,
             'restaurant_id' => (int) $restaurant->id,
             'restaurant_name' => $restaurant->name,
+            'restaurant' => [
+                'id' => (int) $restaurant->id,
+                'name' => $restaurant->name,
+                'address' => $restaurant->address,
+                'latitude' => $restaurant->latitude,
+                'longitude' => $restaurant->longitude,
+                'delivery_radius_km' => $hasDeliveryRadiusColumn ? $restaurant->delivery_radius_km : null,
+                'country_currency' => $restaurant->country_currency,
+            ],
             'category_data' => $categoryData,
         ]);
     }

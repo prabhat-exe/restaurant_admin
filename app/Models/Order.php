@@ -24,6 +24,7 @@ class Order extends Model
         'delivery_address',
         'address_lat',
         'address_long',
+        'distance',
         'delivery_charges',
         'service_charge',
         'selectedDate',
@@ -41,6 +42,7 @@ class Order extends Model
         'tip',
         'payment_method',
         'order_comments',
+        'pre_order_status',
     ];
 
     public function user()

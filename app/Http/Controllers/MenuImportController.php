@@ -15,7 +15,9 @@ use App\Models\ItemAddon;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Imports\MenuExcelImport;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
+use App\Models\Restaurant;
 
 
 
@@ -334,6 +336,49 @@ class MenuImportController extends Controller
         $hasMenu = $items->total() > 0;
         // dd($items);
         return view('restaurant.dashboard', compact('items', 'hasMenu'));
+    }
+
+    public function delivery()
+    {
+        /** @var Restaurant $restaurant */
+        $restaurant = auth('restaurant')->user();
+
+        return view('restaurant.delivery', compact('restaurant'));
+    }
+
+    public function updateDeliverySettings(Request $request)
+    {
+        /** @var Restaurant $restaurant */
+        $restaurant = auth('restaurant')->user();
+
+        $validated = $request->validate([
+            'latitude' => ['required', 'numeric', 'between:-90,90'],
+            'longitude' => ['required', 'numeric', 'between:-180,180'],
+            'delivery_radius_km' => ['required', 'numeric', 'min:0.1', 'max:200'],
+            'address' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $updatePayload = [
+            'latitude' => $validated['latitude'],
+            'longitude' => $validated['longitude'],
+            'address' => $validated['address'] ?? $restaurant->address,
+        ];
+
+        if (Schema::hasColumn('restaurants', 'delivery_radius_km')) {
+            $updatePayload['delivery_radius_km'] = round((float) $validated['delivery_radius_km'], 2);
+        }
+
+        $restaurant->update($updatePayload);
+
+        if (!Schema::hasColumn('restaurants', 'delivery_radius_km')) {
+            return redirect()
+                ->route('restaurant.delivery')
+                ->with('error', 'Latitude and longitude were saved, but delivery radius needs a database migration before it can be stored. Run: php artisan migrate');
+        }
+
+        return redirect()
+            ->route('restaurant.delivery')
+            ->with('success', 'Delivery area updated successfully.');
     }
 
     public function pos()
