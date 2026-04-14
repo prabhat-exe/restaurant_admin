@@ -2,7 +2,9 @@
 
 namespace App\Models;
 
+use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Notifications\Notifiable;
 
 class Restaurant extends Authenticatable
@@ -56,13 +58,60 @@ class Restaurant extends Authenticatable
         'longitude' => 'decimal:7',
         'delivery_radius_km' => 'decimal:2',
         'last_synced_at' => 'datetime',
-        'client_id' => 'encrypted',
-        'public_key' => 'encrypted',
-        'secret_key' => 'encrypted',
     ];
 
     public function posSystems()
     {
         return $this->hasMany(PosSystem::class);
+    }
+
+    public function getClientIdAttribute($value): ?string
+    {
+        return $this->decryptPosCredential($value);
+    }
+
+    public function setClientIdAttribute($value): void
+    {
+        $this->setEncryptedPosCredential('client_id', $value);
+    }
+
+    public function getPublicKeyAttribute($value): ?string
+    {
+        return $this->decryptPosCredential($value);
+    }
+
+    public function setPublicKeyAttribute($value): void
+    {
+        $this->setEncryptedPosCredential('public_key', $value);
+    }
+
+    public function getSecretKeyAttribute($value): ?string
+    {
+        return $this->decryptPosCredential($value);
+    }
+
+    public function setSecretKeyAttribute($value): void
+    {
+        $this->setEncryptedPosCredential('secret_key', $value);
+    }
+
+    private function decryptPosCredential(?string $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return $value;
+        }
+
+        try {
+            return Crypt::decryptString($value);
+        } catch (DecryptException) {
+            return $value;
+        }
+    }
+
+    private function setEncryptedPosCredential(string $key, mixed $value): void
+    {
+        $this->attributes[$key] = $value === null || $value === ''
+            ? $value
+            : Crypt::encryptString((string) $value);
     }
 }
