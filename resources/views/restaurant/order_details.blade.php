@@ -40,8 +40,14 @@
                 <p class="font-semibold text-gray-800 dark:text-gray-200">{{ $order->created_at->format('d M Y h:i A') }}</p>
             </div>
             <div>
+                <p class="text-xs text-gray-500">Scheduled For</p>
+                <p class="font-semibold text-gray-800 dark:text-gray-200">{{ $order->scheduled_at ? $order->scheduled_at->format('d M Y h:i A') : '-' }}</p>
+            </div>
+            <div>
                 <p class="text-xs text-gray-500">Status</p>
-                <p class="font-semibold text-gray-800 dark:text-gray-200">{{ $order->order_status == 4 ? 'Placed' : 'In Progress' }}</p>
+                <p class="font-semibold text-gray-800 dark:text-gray-200">
+                    {{ $order->is_future_scheduled ? 'Scheduled' : ($order->order_status == 4 ? 'Placed' : 'In Progress') }}
+                </p>
             </div>
             <div>
                 <p class="text-xs text-gray-500">Payment Method</p>

@@ -248,13 +248,13 @@ class OrderController extends Controller
         $selectedDate = trim((string) ($request->selectedDate ?? ''));
         $selectedTime = trim((string) ($request->time ?? ''));
         $preOrderStatus = 0;
+        $scheduledAt = null;
 
-        if ($selectedDate !== '') {
+        if ($selectedDate !== '' || $selectedTime !== '') {
             try {
-                $scheduledAt = $selectedTime !== ''
-                    ? Carbon::parse($selectedDate . ' ' . $selectedTime)
-                    : Carbon::parse($selectedDate)->endOfDay();
-
+                $scheduledAt = $this->parseScheduledAt($selectedDate, $selectedTime);
+                $selectedDate = $scheduledAt->format('Y-m-d');
+                $selectedTime = $selectedTime !== '' ? $scheduledAt->format('H:i:s') : '';
                 $preOrderStatus = $scheduledAt->greaterThan(Carbon::now()) ? 1 : 0;
             } catch (\Throwable $e) {
                 return response()->json([
@@ -334,6 +334,24 @@ class OrderController extends Controller
 
             return response()->json(['success' => false, 'errors' => [$e->getMessage()]], 500);
         }
+    }
+
+    private function parseScheduledAt(string $selectedDate, string $selectedTime): Carbon
+    {
+        $normalizedDate = trim($selectedDate);
+        $normalizedTime = trim($selectedTime);
+
+        if ($normalizedDate === '') {
+            $normalizedDate = Carbon::now()->format('Y-m-d');
+        } else {
+            $normalizedDate = Carbon::parse($normalizedDate)->format('Y-m-d');
+        }
+
+        if ($normalizedTime === '') {
+            return Carbon::parse($normalizedDate)->endOfDay();
+        }
+
+        return Carbon::parse($normalizedDate . ' ' . $normalizedTime);
     }
 
     /**

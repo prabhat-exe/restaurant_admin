@@ -17,7 +17,17 @@ class RestaurantOrderController extends Controller
                         ->orderBy('created_at', 'desc')
                         ->get();
 
-        return view('restaurant.orders', compact('orders'));
+        $futureOrders = $orders
+            ->filter(fn (Order $order) => $order->is_future_scheduled)
+            ->sortBy(fn (Order $order) => $order->scheduled_at ?? $order->created_at)
+            ->values();
+
+        $currentAndPastOrders = $orders
+            ->reject(fn (Order $order) => $order->is_future_scheduled)
+            ->sortByDesc(fn (Order $order) => $order->display_order_at)
+            ->values();
+
+        return view('restaurant.orders', compact('futureOrders', 'currentAndPastOrders'));
     }
 
     public function showOrderDetails(string $orderId)
