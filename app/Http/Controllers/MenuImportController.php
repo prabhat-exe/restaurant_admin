@@ -237,58 +237,7 @@ class MenuImportController extends Controller
                 ->with('success', "JSON menu imported successfully ({$importedItems} items. Please be patient while embedding is generating in background ).");
         }
         
-        // -----------------------------
-        // 3️⃣ PDF IMPORT (AI Based)
-        // -----------------------------
-        // if ($request->hasFile('pdf_file')) {
-        //     // dd($request->all());
-
-        //     // dd('hello to check the pdf upload file ');
-        //     $request->validate([
-        //         'pdf_file' => 'required|mimes:pdf|max:10240',
-        //     ]);
-
-        //     $restaurant = auth('restaurant')->user();
-
-        //     try {
-
-        //         // Send PDF to AI service
-        //         $structuredJson = $this->sendPdfToAi(
-        //             $request->file('pdf_file'),
-        //             $restaurant->id
-        //         );
-
-        //         // Validate AI response
-        //         if (
-        //             !$structuredJson ||
-        //             !isset($structuredJson['Category_data']) ||
-        //             !is_array($structuredJson['Category_data'])
-        //         ) {
-        //             return back()->with('error', 'AI failed to extract valid menu data from PDF.');
-        //         }
-
-        //         // Store menu using your existing JSON logic
-        //         DB::transaction(function () use ($structuredJson, $restaurant) {
-        //             $this->storeMenuFromJson($structuredJson, $restaurant);
-        //         });
-
-        //         // Trigger AI reindex
-        //         $this->triggerReindex($restaurant->id);
-
-        //         return redirect()
-        //             ->route('restaurant.dashboard')
-        //             ->with('success', 'PDF menu imported successfully');
-
-        //     } catch (\Throwable $e) {
-
-        //         logger()->error('PDF import failed', [
-        //             'restaurant_id' => $restaurant->id,
-        //             'error' => $e->getMessage(),
-        //         ]);
-
-        //         return back()->with('error', 'Something went wrong while importing PDF.');
-        //     }
-        // }
+        
 
         return back()->with('error', 'Please paste JSON or upload Excel file');
     }

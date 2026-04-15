@@ -201,7 +201,7 @@ class AdminPosController extends Controller
             ],
             'password' => $passwordRules,
             'menu_url' => ['required', 'url', 'max:2000'],
-            'client_id' => ['required', 'numeric'],
+            'client_id' => ['required', 'string', 'max:255'],
             'public_key' => ['required', 'string', 'max:255'],
             'secret_key' => ['required', 'string', 'max:1000'],
             'is_active' => ['nullable', 'boolean'],

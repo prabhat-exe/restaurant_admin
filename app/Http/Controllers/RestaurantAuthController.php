@@ -22,7 +22,7 @@ class RestaurantAuthController extends Controller
             'email' => 'required|email',
             'password' => 'required',
         ]);
-
+        
         if (Auth::guard('admin')->attempt($credentials)) {
             return redirect()->route('admin.dashboard');
         }

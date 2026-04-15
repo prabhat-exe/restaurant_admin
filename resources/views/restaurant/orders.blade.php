@@ -1,7 +1,7 @@
 @php
     $title = 'Restaurant Orders';
     $panelName = 'Restaurant Panel';
-    $heading = 'Order List';
+    $heading = 'Orders List';
     $subheading = 'Track incoming and completed orders';
     $logoutRoute = 'restaurant.logout';
     $navLinks = [

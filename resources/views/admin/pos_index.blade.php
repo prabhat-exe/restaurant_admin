@@ -65,13 +65,34 @@
                                 <form method="POST" action="{{ route('admin.pos.update', $pos->id) }}" class="grid gap-3 sm:grid-cols-3">
                                     @csrf
                                     @method('PUT')
-                                    <input type="text" name="name" value="{{ $pos->name }}" required class="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm">
-                                    <input type="email" name="email" value="{{ $pos->email }}" required class="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm" placeholder="POS login email">
-                                    <input type="url" name="menu_url" value="{{ $pos->menu_url }}" required class="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm">
-                                    <input type="text" name="client_id" value="{{ $pos->client_id }}" required class="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm">
-                                    <input type="text" name="public_key" value="{{ $pos->public_key }}" required class="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm">
-                                    <input type="text" name="secret_key" value="{{ $pos->secret_key }}" required class="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm">
-                                    <input type="password" name="password" class="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm" placeholder="New POS login password (leave blank to keep)">
+                                    <div>
+                                        <label class="mb-1 block text-xs font-semibold text-gray-700">POS Name</label>
+                                        <input type="text" name="name" value="{{ $pos->name }}" required placeholder="POS name" class="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm">
+                                    </div>
+                                    <div>
+                                        <label class="mb-1 block text-xs font-semibold text-gray-700">POS Login Email</label>
+                                        <input type="email" name="email" value="{{ $pos->email }}" required class="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm" placeholder="POS login email">
+                                    </div>
+                                    <div>
+                                        <label class="mb-1 block text-xs font-semibold text-gray-700">Menu URL</label>
+                                        <input type="url" name="menu_url" value="{{ $pos->menu_url }}" required placeholder="POS menu URL" class="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm">
+                                    </div>
+                                    <div>
+                                        <label class="mb-1 block text-xs font-semibold text-gray-700">Client ID</label>
+                                        <input type="text" name="client_id" value="{{ $pos->client_id }}" required placeholder="Client ID" class="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm">
+                                    </div>
+                                    <div>
+                                        <label class="mb-1 block text-xs font-semibold text-gray-700">Public Key</label>
+                                        <input type="text" name="public_key" value="{{ $pos->public_key }}" required placeholder="Public key" class="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm">
+                                    </div>
+                                    <div>
+                                        <label class="mb-1 block text-xs font-semibold text-gray-700">Secret Key</label>
+                                        <input type="text" name="secret_key" value="{{ $pos->secret_key }}" required placeholder="Secret key" class="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm">
+                                    </div>
+                                    <div>
+                                        <label class="mb-1 block text-xs font-semibold text-gray-700">New Password</label>
+                                        <input type="password" name="password" class="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm" placeholder="Leave blank to keep current">
+                                    </div>
                                     <div class="flex items-center justify-between gap-3">
                                         <label class="inline-flex items-center gap-2 text-xs text-gray-700">
                                             <input type="checkbox" name="is_active" value="1" @checked($pos->is_active) class="h-4 w-4 rounded border-gray-300 text-brand-600">

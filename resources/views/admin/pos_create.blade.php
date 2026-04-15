@@ -31,17 +31,17 @@
 
             <div>
                 <label class="mb-1.5 block text-sm font-medium text-gray-700">Client ID</label>
-                <input type="text" name="client_id" value="{{ old('client_id') }}" required class="h-11 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden">
+                <input type="text" name="client_id" value="{{ old('client_id') }}" required placeholder="X-Client-Id value" class="h-11 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden">
             </div>
 
             <div>
                 <label class="mb-1.5 block text-sm font-medium text-gray-700">Public Key</label>
-                <input type="text" name="public_key" value="{{ old('public_key') }}" required class="h-11 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden">
+                <input type="text" name="public_key" value="{{ old('public_key') }}" required placeholder="X-Public-Key value" class="h-11 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden">
             </div>
 
             <div class="sm:col-span-2">
                 <label class="mb-1.5 block text-sm font-medium text-gray-700">Secret Key</label>
-                <input type="text" name="secret_key" value="{{ old('secret_key') }}" required class="h-11 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden">
+                <input type="text" name="secret_key" value="{{ old('secret_key') }}" required placeholder="X-Secret-Key value" class="h-11 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden">
             </div>
 
             <div>
