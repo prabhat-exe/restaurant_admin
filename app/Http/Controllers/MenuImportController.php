@@ -295,6 +295,40 @@ class MenuImportController extends Controller
         return view('restaurant.delivery', compact('restaurant'));
     }
 
+    public function settings()
+    {
+        /** @var Restaurant $restaurant */
+        $restaurant = auth('restaurant')->user();
+
+        return view('restaurant.settings', compact('restaurant'));
+    }
+
+    public function updateSettings(Request $request)
+    {
+        /** @var Restaurant $restaurant */
+        $restaurant = auth('restaurant')->user();
+
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'country_currency' => ['nullable', 'string', 'max:20'],
+            'short_description' => ['nullable', 'string', 'max:1000'],
+            'description' => ['nullable', 'string', 'max:5000'],
+            'cook_time' => ['nullable', 'integer', 'min:0', 'max:1440'],
+        ]);
+
+        $validated['country_currency'] = $this->nullableTrim($validated['country_currency'] ?? null);
+        $validated['short_description'] = $this->nullableTrim($validated['short_description'] ?? null);
+        $validated['description'] = $this->nullableTrim($validated['description'] ?? null);
+        $validated['cook_time'] = $validated['cook_time'] ?? null;
+
+        $restaurant->update($validated);
+        $this->triggerReindex((int) $restaurant->id);
+
+        return redirect()
+            ->route('restaurant.settings')
+            ->with('success', 'Restaurant settings updated successfully.');
+    }
+
     public function updateDeliverySettings(Request $request)
     {
         /** @var Restaurant $restaurant */
@@ -463,17 +497,34 @@ class MenuImportController extends Controller
             ->with('success', 'Item deleted successfully.');
     }
 
+    // private function triggerReindex(int $restaurantId): void
+    // {
+    //     $aiBaseUrl = rtrim((string) env('AI_SERVICE_URL', 'http://127.0.0.1:8000'), '/');
+    //     $payload = ['restaurant_id' => $restaurantId];
+
+    //     // Run AI sync after sending HTTP response so menu edit/delete feels instant in UI.
+    //     dispatch(function () use ($aiBaseUrl, $payload, $restaurantId) {
+    //         try {
+    //             Http::connectTimeout(3)
+    //                 ->timeout(45)
+    //                 ->post($aiBaseUrl . '/sync', $payload);
+    //         } catch (\Throwable $e) {
+    //             logger()->warning('AI sync trigger failed', [
+    //                 'restaurant_id' => $restaurantId,
+    //                 'error' => $e->getMessage(),
+    //             ]);
+    //         }
+    //     })->afterResponse();
+    // }
+
     private function triggerReindex(int $restaurantId): void
     {
         $aiBaseUrl = rtrim((string) env('AI_SERVICE_URL', 'http://127.0.0.1:8000'), '/');
         $payload = ['restaurant_id' => $restaurantId];
 
-        // Run AI sync after sending HTTP response so menu edit/delete feels instant in UI.
         dispatch(function () use ($aiBaseUrl, $payload, $restaurantId) {
             try {
-                Http::connectTimeout(3)
-                    ->timeout(45)
-                    ->post($aiBaseUrl . '/sync', $payload);
+                Http::post($aiBaseUrl . '/sync', $payload);
             } catch (\Throwable $e) {
                 logger()->warning('AI sync trigger failed', [
                     'restaurant_id' => $restaurantId,
@@ -523,6 +574,17 @@ class MenuImportController extends Controller
         }
 
         return null;
+    }
+
+    private function nullableTrim(?string $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $value = trim($value);
+
+        return $value === '' ? null : $value;
     }
 
     private function normalizeItemAvailability(array $itemData): bool

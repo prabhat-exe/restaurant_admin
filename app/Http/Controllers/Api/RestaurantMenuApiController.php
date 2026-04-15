@@ -28,6 +28,9 @@ class RestaurantMenuApiController extends Controller
             'address',
             'is_active',
             'country_currency',
+            'short_description',
+            'description',
+            'cook_time',
             'latitude',
             'longitude',
         ];
@@ -215,6 +218,9 @@ class RestaurantMenuApiController extends Controller
                 'longitude' => $restaurant->longitude,
                 'delivery_radius_km' => $hasDeliveryRadiusColumn ? $restaurant->delivery_radius_km : null,
                 'country_currency' => $restaurant->country_currency,
+                'short_description' => $restaurant->short_description,
+                'description' => $restaurant->description,
+                'cook_time' => $restaurant->cook_time,
             ],
             'category_data' => $categoryData,
         ]);

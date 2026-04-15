@@ -30,6 +30,14 @@ Route::prefix('restaurant')->group(function () {
         ->middleware('auth:restaurant')
         ->name('restaurant.delivery');
 
+    Route::get('settings', [MenuImportController::class, 'settings'])
+        ->middleware('auth:restaurant')
+        ->name('restaurant.settings');
+
+    Route::post('settings', [MenuImportController::class, 'updateSettings'])
+        ->middleware('auth:restaurant')
+        ->name('restaurant.settings.update');
+
     Route::post('delivery-settings', [MenuImportController::class, 'updateDeliverySettings'])
         ->middleware('auth:restaurant')
         ->name('restaurant.delivery.settings');
