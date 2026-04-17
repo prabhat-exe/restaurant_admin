@@ -31,26 +31,7 @@ class MenuImportController extends Controller
         return view('restaurant.menu_import', compact('hasMenu'));
     }
 
-    private function sendPdfToAi($pdfFile, int $restaurantId)
-    {
-        $aiBaseUrl = rtrim((string) env('AI_SERVICE_URL'), '/');
-
-        $response = \Illuminate\Support\Facades\Http::timeout(120)
-            ->attach(
-                'file',
-                file_get_contents($pdfFile->getRealPath()),
-                $pdfFile->getClientOriginalName()
-            )
-            ->post($aiBaseUrl . '/parse-menu-pdf', [
-                'restaurant_id' => $restaurantId
-            ]);
-
-        if ($response->successful()) {
-            return $response->json();
-        }
-
-        return null;
-    }
+    
 
     private function storeMenuFromJson(array $json, $restaurant)
     {
@@ -213,15 +194,24 @@ class MenuImportController extends Controller
                                     $itemData['item_attachment']['attachment_url'];
                             }
 
-                            \App\Models\MenuItem::create([
+                            $item = \App\Models\MenuItem::create([
                                 'restaurant_id' => $restaurant->id,
                                 'category_id' => $category->id,
                                 'name' => $itemData['name'],
-                                'description' => $itemData['description'],
-                                'price' => $itemData['web_price'] ?? 0,
+                                'description' => $itemData['description'] ?? null,
+                                'price' => $itemData['web_price'] ?? $itemData['price'] ?? 0,
                                 'is_available' => $this->normalizeItemAvailability($itemData),
                                 'image' => $imageUrl,
                             ]);
+
+                            $variations = $this->normalizeJsonVariationRows($itemData);
+                            if (!empty($variations)) {
+                                $this->syncItemRelations([
+                                    'category_id' => $category->id,
+                                    'variations' => $variations,
+                                ], $restaurant->id, $item);
+                            }
+
                             $itemCount++;
                         }
                     }
@@ -619,6 +609,99 @@ class MenuImportController extends Controller
         }
 
         return (bool) $status;
+    }
+
+    private function normalizeJsonVariationRows(array $itemData): array
+    {
+        $rawVariations = $itemData['variations']
+            ?? $itemData['item_variation']
+            ?? $itemData['customize_item_variation']
+            ?? $itemData['variation_data']
+            ?? [];
+
+        if (!is_array($rawVariations)) {
+            return [];
+        }
+
+        if ($this->looksLikeVariationRow($rawVariations)) {
+            $rawVariations = [$rawVariations];
+        } else {
+            $rawVariations = array_values($rawVariations);
+        }
+
+        $normalized = [];
+
+        foreach ($rawVariations as $variationRow) {
+            if (!is_array($variationRow)) {
+                continue;
+            }
+
+            $detail = $variationRow['variation_detail'] ?? [];
+            if (is_array($detail) && array_is_list($detail)) {
+                $detail = $detail[0] ?? [];
+            }
+            if (!is_array($detail)) {
+                $detail = [];
+            }
+
+            $variationName = trim((string) (
+                $variationRow['variation_name']
+                ?? $detail['variation_name']
+                ?? $variationRow['name']
+                ?? $variationRow['title']
+                ?? ''
+            ));
+
+            if ($variationName === '') {
+                continue;
+            }
+
+            $basePrice = $this->toMoney(
+                $variationRow['variation_price']
+                ?? $variationRow['price']
+                ?? $variationRow['web_price']
+                ?? 0
+            );
+
+            $normalized[] = [
+                'variation_name' => $variationName,
+                'pos_price' => $this->toMoney(
+                    $variationRow['pos_price']
+                    ?? $variationRow['variation_price']
+                    ?? $basePrice,
+                    $basePrice
+                ),
+                'web_price' => $this->toMoney($variationRow['web_price'] ?? $basePrice, $basePrice),
+                'mobile_price' => $this->toMoney($variationRow['mobile_price'] ?? $basePrice, $basePrice),
+            ];
+        }
+
+        return $normalized;
+    }
+
+    private function looksLikeVariationRow(array $value): bool
+    {
+        foreach (['variation_name', 'variation_detail', 'variation_price', 'web_price'] as $key) {
+            if (array_key_exists($key, $value)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function toMoney(mixed $value, float $fallback = 0): float
+    {
+        if ($value === null || $value === '') {
+            return $fallback;
+        }
+
+        $sanitized = str_replace(',', '', trim((string) $value));
+        if (!is_numeric($sanitized)) {
+            return $fallback;
+        }
+
+        return (float) $sanitized;
     }
 
     private function validateItemPayload(Request $request, int $restaurantId): array
