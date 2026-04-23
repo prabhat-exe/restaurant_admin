@@ -579,7 +579,7 @@ class MenuImportController extends Controller
 
     private function normalizeItemAvailability(array $itemData): bool
     {
-        $status = $itemData['status'] ?? null;
+        $status = $itemData['is_available'] ?? $itemData['status'] ?? null;
 
         if (is_string($status)) {
             $normalized = strtolower(trim($status));
@@ -593,11 +593,15 @@ class MenuImportController extends Controller
             }
         }
 
+        if ($status === null || $status === '') {
+            return true;
+        }
+
         if ($status === true || $status === 1 || $status === '1') {
             return true;
         }
 
-        if ($status === false || $status === 0 || $status === '0' || $status === null || $status === '') {
+        if ($status === false || $status === 0 || $status === '0') {
             foreach (['web_enable', 'pos_enable', 'mobile_enable'] as $flag) {
                 $value = $itemData[$flag] ?? null;
                 if ($value === true || $value === 1 || $value === '1') {
