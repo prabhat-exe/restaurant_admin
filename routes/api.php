@@ -17,6 +17,8 @@ Route::post('/complete/profile', [CustomerAuthController::class, 'completeProfil
 
 Route::post('/orders/upload-json', [OrderUploadController::class, 'upload']);
 Route::post('/orders/place', [OrderController::class, 'place']);
+Route::get('/orders/future', [OrderController::class, 'future']);
+Route::get('/orders/same-day', [OrderController::class, 'sameDay']);
 Route::get('/orders/{order_id}', [OrderController::class, 'summary']);
 Route::get('/order-items/{order_item_id}', [OrderController::class, 'itemHistory']);
 Route::get('/orders/{order_id}/items', [OrderController::class, 'orderItems']);

@@ -32,10 +32,18 @@ class OrderItem extends Model
         'selected_variation_json',
         'addons_json',
         'is_meal',
+        'is_meal_plan_item',
+        'scheduled_date',
+        'scheduled_time',
+        'plan_day_number',
+        'plan_week_number',
+        'meal_slot',
     ];
 
     protected $casts = [
         'selected_variation_json' => 'array',
         'addons_json' => 'array',
+        'is_meal_plan_item' => 'boolean',
+        'scheduled_date' => 'date',
     ];
 }

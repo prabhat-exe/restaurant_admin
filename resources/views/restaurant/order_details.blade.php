@@ -51,6 +51,22 @@
                     {{ $order->is_future_scheduled ? 'Scheduled' : ($order->order_status == 4 ? 'Placed' : 'In Progress') }}
                 </p>
             </div>
+            @if($order->is_meal_plan)
+                <div>
+                    <p class="text-xs text-gray-500">Meal Plan</p>
+                    <p class="font-semibold text-gray-800 dark:text-gray-200">
+                        {{ $order->plan_type ?: 'Meal Plan' }} · {{ $order->plan_total_days ?? 0 }} days
+                    </p>
+                </div>
+                <div>
+                    <p class="text-xs text-gray-500">Plan Dates</p>
+                    <p class="font-semibold text-gray-800 dark:text-gray-200">
+                        {{ $order->plan_start_date ? $order->plan_start_date->format('d M Y') : '-' }}
+                        -
+                        {{ $order->plan_end_date ? $order->plan_end_date->format('d M Y') : '-' }}
+                    </p>
+                </div>
+            @endif
             <div>
                 <p class="text-xs text-gray-500">Payment Method</p>
                 <p class="font-semibold text-gray-800 dark:text-gray-200">{{ $order->payment_method ?? '-' }}</p>
@@ -75,6 +91,8 @@
                             <th class="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">#</th>
                             <th class="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">Item Name</th>
                             <th class="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">Category</th>
+                            <th class="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">Scheduled</th>
+                            <th class="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">Meal Slot</th>
                             <th class="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">Qty</th>
                             <th class="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">Price</th>
                             <th class="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">Total</th>
@@ -89,6 +107,24 @@
                                 <td class="px-4 py-3">{{ $index + 1 }}</td>
                                 <td class="px-4 py-3 font-medium">{{ $item->item_name }}</td>
                                 <td class="px-4 py-3">{{ $item->category_name ?? '-' }}</td>
+                                <td class="px-4 py-3">
+                                    @if($item->scheduled_date)
+                                        <div class="text-xs text-gray-700 dark:text-gray-300">
+                                            {{ $item->scheduled_date->format('d M Y') }}
+                                            @if($item->scheduled_time)
+                                                {{ \Carbon\Carbon::parse($item->scheduled_time)->format('h:i A') }}
+                                            @endif
+                                        </div>
+                                        @if($item->plan_day_number)
+                                            <div class="mt-1 text-xs text-gray-500">
+                                                Week {{ $item->plan_week_number ?? '-' }}, Day {{ $item->plan_day_number }}
+                                            </div>
+                                        @endif
+                                    @else
+                                        -
+                                    @endif
+                                </td>
+                                <td class="px-4 py-3">{{ $item->meal_slot ?? '-' }}</td>
                                 <td class="px-4 py-3">{{ $item->quantity }}</td>
                                 <td class="px-4 py-3">{{ $currencySymbol }} {{ $item->price }}</td>
                                 <td class="px-4 py-3">{{ $currencySymbol }} {{ $item->total_price }}</td>

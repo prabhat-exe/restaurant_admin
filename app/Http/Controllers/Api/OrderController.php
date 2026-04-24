@@ -38,6 +38,8 @@ class OrderController extends Controller
             ], 403);
         }
 
+        $isMealPlan = $request->boolean('is_meal_plan');
+
         $validator = Validator::make($request->all(), [
             'user_id' => 'nullable|integer',
             'store_id' => 'required|integer',
@@ -52,18 +54,47 @@ class OrderController extends Controller
             'delivery_address' => 'required|string|max:1000',
             'address_lat' => 'required|numeric|between:-90,90',
             'address_long' => 'required|numeric|between:-180,180',
-            'items' => 'required|array|min:1',
-            'items.*.item_id' => 'required|integer',
-            'items.*.item_name' => 'required|string',
-            'items.*.price' => 'required|numeric',
-            'items.*.total_price' => 'required|numeric',
-            'items.*.quantity' => 'required|integer',
+            'is_meal_plan' => 'nullable|boolean',
+            'plan_type' => 'nullable|string|max:100',
+            'days_per_week' => 'nullable|integer|min:1|max:7',
+            'total_plan_days' => 'nullable|integer|min:1|max:366',
+            'start_date' => 'nullable|date',
+            'meal_slot_times' => 'nullable|array',
+            'meal_plan_summary' => 'nullable|array',
+            'items' => 'nullable|array',
+            'items.*.item_id' => 'required_with:items|integer',
+            'items.*.item_name' => 'required_with:items|string',
+            'items.*.price' => 'required_with:items|numeric',
+            'items.*.total_price' => 'required_with:items|numeric',
+            'items.*.quantity' => 'required_with:items|integer',
             'items.*.selected_variation.variation_id' => 'nullable|integer',
             'items.*.addons' => 'nullable|array',
             'items.*.addons.*.addon_id' => 'required_with:items.*.addons|integer',
+            'schedule' => 'nullable|array',
+            'schedule.*.scheduled_date' => 'required_with:schedule|date',
+            'schedule.*.scheduled_time' => 'required_with:schedule|string',
+            'schedule.*.plan_day_number' => 'required_with:schedule|integer|min:1',
+            'schedule.*.plan_week_number' => 'required_with:schedule|integer|min:1',
+            'schedule.*.meal_slot' => 'required_with:schedule|string|max:100',
+            'schedule.*.item_id' => 'required_with:schedule|integer',
+            'schedule.*.item_name' => 'required_with:schedule|string',
+            'schedule.*.price' => 'required_with:schedule|numeric',
+            'schedule.*.total_price' => 'required_with:schedule|numeric',
+            'schedule.*.quantity' => 'required_with:schedule|integer',
+            'schedule.*.selected_variation.variation_id' => 'nullable|integer',
+            'schedule.*.addons' => 'nullable|array',
+            'schedule.*.addons.*.addon_id' => 'required_with:schedule.*.addons|integer',
         ]);
         if ($validator->fails()) {
             return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
+        }
+
+        if ($isMealPlan && count($request->input('schedule', [])) < 1) {
+            return response()->json(['success' => false, 'errors' => ['Meal plan schedule is required']], 422);
+        }
+
+        if (!$isMealPlan && count($request->input('items', [])) < 1) {
+            return response()->json(['success' => false, 'errors' => ['Items are required']], 422);
         }
 
         $restaurant = Restaurant::query()->where('id', $request->store_id)->where('is_active', 1)->first();
@@ -104,7 +135,8 @@ class OrderController extends Controller
             ], 422);
         }
 
-        $itemIds = collect($request->items)->pluck('item_id')->unique()->values()->all();
+        $checkoutLines = $isMealPlan ? $request->input('schedule', []) : $request->input('items', []);
+        $itemIds = collect($checkoutLines)->pluck('item_id')->unique()->values()->all();
         $menuItems = MenuItem::query()
             ->where('restaurant_id', $restaurant->id)
             ->whereIn('id', $itemIds)
@@ -145,7 +177,7 @@ class OrderController extends Controller
         $normalizedItems = [];
         $tolerance = 0.01;
 
-        foreach ($request->items as $item) {
+        foreach ($checkoutLines as $item) {
             $menuItem = $menuItems->get((int) $item['item_id']);
             $quantity = (int) $item['quantity'];
             if ($quantity <= 0) {
@@ -214,6 +246,21 @@ class OrderController extends Controller
 
             $computedTotal += $serverLineTotal;
             $computedQuantity += $quantity;
+
+            $scheduledDate = null;
+            $scheduledTime = null;
+            if ($isMealPlan) {
+                try {
+                    $scheduledDate = Carbon::parse($item['scheduled_date'] ?? '')->format('Y-m-d');
+                    $scheduledTime = Carbon::parse($scheduledDate . ' ' . ($item['scheduled_time'] ?? ''))->format('H:i:s');
+                } catch (\Throwable $e) {
+                    return response()->json([
+                        'success' => false,
+                        'errors' => ["Invalid schedule date/time for item_id {$menuItem->id}"],
+                    ], 422);
+                }
+            }
+
             $normalizedItems[] = [
                 'item_id' => $menuItem->id,
                 'item_name' => $menuItem->name,
@@ -233,6 +280,12 @@ class OrderController extends Controller
                 'selected_variation_json' => $selectedVariationPayload,
                 'addons_json' => $addonPayload,
                 'is_meal' => $item['is_meal'] ?? 0,
+                'is_meal_plan_item' => $isMealPlan,
+                'scheduled_date' => $scheduledDate,
+                'scheduled_time' => $scheduledTime,
+                'plan_day_number' => $isMealPlan ? (int) ($item['plan_day_number'] ?? 0) : null,
+                'plan_week_number' => $isMealPlan ? (int) ($item['plan_week_number'] ?? 0) : null,
+                'meal_slot' => $isMealPlan ? ($item['meal_slot'] ?? '') : null,
             ];
         }
 
@@ -249,8 +302,49 @@ class OrderController extends Controller
         $selectedTime = trim((string) ($request->time ?? ''));
         $preOrderStatus = 0;
         $scheduledAt = null;
+        $planStartDate = null;
+        $planEndDate = null;
 
-        if ($selectedDate !== '' || $selectedTime !== '') {
+        if ($isMealPlan) {
+            $scheduledDates = collect($normalizedItems)
+                ->pluck('scheduled_date')
+                ->filter()
+                ->sort()
+                ->values();
+            $uniqueScheduledDates = $scheduledDates->unique()->values();
+            $expectedPlanDays = (int) ($request->total_plan_days ?? 0);
+            $daysPerWeek = (int) ($request->days_per_week ?? 5);
+
+            if ($expectedPlanDays > 0 && $uniqueScheduledDates->count() !== $expectedPlanDays) {
+                return response()->json([
+                    'success' => false,
+                    'errors' => ['Meal plan schedule does not match total_plan_days'],
+                ], 422);
+            }
+
+            if ($daysPerWeek === 5) {
+                $weekendDate = $uniqueScheduledDates->first(function ($date) {
+                    return Carbon::parse($date)->isWeekend();
+                });
+
+                if ($weekendDate) {
+                    return response()->json([
+                        'success' => false,
+                        'errors' => ['5 days/week meal plans can only be scheduled on weekdays'],
+                    ], 422);
+                }
+            }
+
+            $planStartDate = $scheduledDates->first();
+            $planEndDate = $scheduledDates->last();
+            $selectedDate = $planStartDate ?: trim((string) ($request->start_date ?? ''));
+            $selectedTime = '';
+            if ($selectedDate !== '') {
+                $preOrderStatus = Carbon::parse($selectedDate)->endOfDay()->greaterThan(Carbon::now()) ? 1 : 0;
+            }
+        }
+
+        if (!$isMealPlan && ($selectedDate !== '' || $selectedTime !== '')) {
             try {
                 $scheduledAt = $this->parseScheduledAt($selectedDate, $selectedTime);
                 $selectedDate = $scheduledAt->format('Y-m-d');
@@ -267,7 +361,7 @@ class OrderController extends Controller
         DB::beginTransaction();
 
         try {
-            $orderId = $request->store_name . '_' . time() . '_' . ($request->token_number ?? 1);
+            $orderId = $this->generateOrderId($restaurant, (int) ($request->token_number ?? 1));
 
             Order::create([
                 'order_id' => $orderId,
@@ -298,6 +392,16 @@ class OrderController extends Controller
                 'payment_method' => $request->payment_method ?? '',
                 'print_status' => $request->print_status ?? 0,
                 'order_comments' => $request->order_comments ?? '',
+                'is_meal_plan' => $isMealPlan,
+                'plan_type' => $isMealPlan ? ($request->plan_type ?? '') : null,
+                'plan_start_date' => $isMealPlan ? $planStartDate : null,
+                'plan_end_date' => $isMealPlan ? $planEndDate : null,
+                'days_per_week' => $isMealPlan ? ($request->days_per_week ?? 5) : null,
+                'plan_total_days' => $isMealPlan ? ($request->total_plan_days ?? collect($normalizedItems)->pluck('scheduled_date')->unique()->count()) : null,
+                'meal_plan_summary_json' => $isMealPlan ? [
+                    'meal_slot_times' => $request->meal_slot_times ?? [],
+                    'summary' => $request->meal_plan_summary ?? [],
+                ] : null,
             ]);
 
             foreach ($normalizedItems as $item) {
@@ -323,6 +427,12 @@ class OrderController extends Controller
                     'selected_variation_json' => $item['selected_variation_json'] ?? null,
                     'addons_json' => $item['addons_json'] ?? [],
                     'is_meal' => $item['is_meal'] ?? 0,
+                    'is_meal_plan_item' => $item['is_meal_plan_item'] ?? false,
+                    'scheduled_date' => $item['scheduled_date'] ?? ($selectedDate ?: null),
+                    'scheduled_time' => $item['scheduled_time'] ?? ($selectedTime ?: null),
+                    'plan_day_number' => $item['plan_day_number'] ?? null,
+                    'plan_week_number' => $item['plan_week_number'] ?? null,
+                    'meal_slot' => $item['meal_slot'] ?? null,
                 ]);
             }
 
@@ -352,6 +462,31 @@ class OrderController extends Controller
         }
 
         return Carbon::parse($normalizedDate . ' ' . $normalizedTime);
+    }
+
+    private function generateOrderId(Restaurant $restaurant, int $tokenNumber): string
+    {
+        $prefix = strtolower((string) preg_replace('/[^A-Za-z0-9]+/', '', $restaurant->name));
+        if ($prefix === '') {
+            $prefix = 'store' . $restaurant->id;
+        }
+
+        for ($attempt = 0; $attempt < 5; $attempt++) {
+            $suffix = bin2hex(random_bytes(3));
+            $orderId = sprintf(
+                '%s_%s_%d_%s',
+                $prefix,
+                Carbon::now()->format('YmdHisv'),
+                $tokenNumber,
+                $suffix
+            );
+
+            if (!Order::withTrashed()->where('order_id', $orderId)->exists()) {
+                return $orderId;
+            }
+        }
+
+        return sprintf('%s_%s_%d_%s', $prefix, str_replace('.', '', uniqid('', true)), $tokenNumber, bin2hex(random_bytes(4)));
     }
 
     /**
@@ -397,6 +532,118 @@ class OrderController extends Controller
             'order_id' => $order_id,
             'items' => $items,
         ]);
+    }
+
+    /**
+     * Get upcoming day-wise orders for the logged-in customer.
+     */
+    public function future(Request $request)
+    {
+        $authUser = $this->resolveUserFromRequest($request);
+        if (!$authUser) {
+            return response()->json([
+                'success' => false,
+                'errors' => ['Unauthorized. Please login first.'],
+            ], 401);
+        }
+
+        $today = Carbon::today()->format('Y-m-d');
+
+        $items = OrderItem::query()
+            ->where('user_id', $authUser->id)
+            ->whereNotNull('scheduled_date')
+            ->where('scheduled_date', '>', $today)
+            ->orderBy('scheduled_date')
+            ->orderBy('scheduled_time')
+            ->orderBy('plan_day_number')
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'orders' => $this->groupOrderItemsForCustomerView($items),
+        ]);
+    }
+
+    /**
+     * Get same-day orders placed by the logged-in customer.
+     */
+    public function sameDay(Request $request)
+    {
+        $authUser = $this->resolveUserFromRequest($request);
+        if (!$authUser) {
+            return response()->json([
+                'success' => false,
+                'errors' => ['Unauthorized. Please login first.'],
+            ], 401);
+        }
+
+        $today = Carbon::today()->format('Y-m-d');
+
+        $items = OrderItem::query()
+            ->where('user_id', $authUser->id)
+            ->where('is_meal_plan_item', false)
+            ->where(function ($query) use ($today) {
+                $query->where('scheduled_date', $today)
+                    ->orWhere(function ($createdToday) use ($today) {
+                        $createdToday->whereNull('scheduled_date')
+                            ->whereDate('created_at', $today);
+                    });
+            })
+            ->orderBy('created_at', 'desc')
+            ->orderBy('scheduled_time')
+            ->orderBy('id')
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'orders' => $this->groupOrderItemsForCustomerView($items),
+        ]);
+    }
+
+    private function groupOrderItemsForCustomerView($items)
+    {
+        $orders = Order::query()
+            ->whereIn('order_id', $items->pluck('order_id')->unique()->values())
+            ->get()
+            ->keyBy('order_id');
+
+        return $items
+            ->groupBy(function (OrderItem $item) use ($orders) {
+                $scheduledDate = $item->scheduled_date?->format('Y-m-d') ?? (string) $item->scheduled_date;
+                if ($scheduledDate !== '') {
+                    return $scheduledDate;
+                }
+
+                return $orders->get($item->order_id)?->created_at?->format('Y-m-d')
+                    ?? $item->created_at?->format('Y-m-d')
+                    ?? 'Today';
+            })
+            ->map(function ($dayItems, $date) use ($orders) {
+                return [
+                    'date' => $date,
+                    'items' => $dayItems->map(function (OrderItem $item) use ($orders) {
+                        $order = $orders->get($item->order_id);
+
+                        return [
+                            'order_id' => $item->order_id,
+                            'store_name' => $order?->store_name,
+                            'scheduled_date' => $item->scheduled_date?->format('Y-m-d') ?? (string) $item->scheduled_date,
+                            'scheduled_time' => $item->scheduled_time,
+                            'plan_day_number' => $item->plan_day_number,
+                            'plan_week_number' => $item->plan_week_number,
+                            'meal_slot' => $item->meal_slot,
+                            'item_name' => $item->item_name,
+                            'quantity' => $item->quantity,
+                            'price' => $item->price,
+                            'total_price' => $item->total_price,
+                            'order_status' => $item->order_status,
+                            'selected_variation' => $item->selected_variation_json,
+                            'addons' => $item->addons_json,
+                        ];
+                    })->values(),
+                ];
+            })
+            ->values();
     }
 
     private function resolveUserFromRequest(Request $request): ?User

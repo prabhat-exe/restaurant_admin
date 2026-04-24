@@ -44,6 +44,20 @@ class Order extends Model
         'payment_method',
         'order_comments',
         'pre_order_status',
+        'is_meal_plan',
+        'plan_type',
+        'plan_start_date',
+        'plan_end_date',
+        'days_per_week',
+        'plan_total_days',
+        'meal_plan_summary_json',
+    ];
+
+    protected $casts = [
+        'is_meal_plan' => 'boolean',
+        'plan_start_date' => 'date',
+        'plan_end_date' => 'date',
+        'meal_plan_summary_json' => 'array',
     ];
 
     public function user()
