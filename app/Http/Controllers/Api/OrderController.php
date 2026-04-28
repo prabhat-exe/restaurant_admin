@@ -466,27 +466,19 @@ class OrderController extends Controller
 
     private function generateOrderId(Restaurant $restaurant, int $tokenNumber): string
     {
-        $prefix = strtolower((string) preg_replace('/[^A-Za-z0-9]+/', '', $restaurant->name));
-        if ($prefix === '') {
-            $prefix = 'store' . $restaurant->id;
-        }
+        $prefix = 'R' . $restaurant->id;
+        $date = Carbon::now()->format('ymd');
 
         for ($attempt = 0; $attempt < 5; $attempt++) {
-            $suffix = bin2hex(random_bytes(3));
-            $orderId = sprintf(
-                '%s_%s_%d_%s',
-                $prefix,
-                Carbon::now()->format('YmdHisv'),
-                $tokenNumber,
-                $suffix
-            );
+            $suffix = strtoupper(bin2hex(random_bytes(2)));
+            $orderId = sprintf('%s-%s-%s', $prefix, $date, $suffix);
 
             if (!Order::withTrashed()->where('order_id', $orderId)->exists()) {
                 return $orderId;
             }
         }
 
-        return sprintf('%s_%s_%d_%s', $prefix, str_replace('.', '', uniqid('', true)), $tokenNumber, bin2hex(random_bytes(4)));
+        return sprintf('%s-%s-%s', $prefix, $date, strtoupper(bin2hex(random_bytes(3))));
     }
 
     /**

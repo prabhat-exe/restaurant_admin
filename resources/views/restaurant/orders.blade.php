@@ -1,8 +1,8 @@
 @php
     $title = 'Restaurant Orders';
     $panelName = 'Restaurant Panel';
-    $heading = 'Orders List';
-    $subheading = 'Track incoming and completed orders';
+    $heading = $pageMeta['heading'] ?? 'Orders List';
+    $subheading = $pageMeta['subheading'] ?? 'Normal orders, scheduled item orders, and meal-plan deliveries are separated';
     $logoutRoute = 'restaurant.logout';
     $navLinks = [
         ['label' => 'Items', 'route' => 'restaurant.dashboard'],
@@ -17,7 +17,19 @@
 
 @section('content')
     @php
-        $renderOrdersTable = function ($orders, $emptyMessage, $showScheduleBadge = false) use ($currencySymbol) {
+        $renderBadge = function ($label, $classes) {
+            return '<span class="inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ' . e($classes) . '">' . e($label) . '</span>';
+        };
+
+        $renderPagination = function ($paginator) {
+            if (!$paginator->hasPages()) {
+                return '';
+            }
+
+            return '<div class="border-t border-gray-100 px-4 py-3 dark:border-gray-800">' . $paginator->links() . '</div>';
+        };
+
+        $renderOrderTable = function ($orders, $emptyMessage, $dateHeading, $dateValueResolver, $badgeResolver) use ($currencySymbol, $renderBadge) {
             if ($orders->count() === 0) {
                 return '<div class="px-4 py-5 text-sm text-warning-700">' . e($emptyMessage) . '</div>';
             }
@@ -27,35 +39,71 @@
             $html .= '<th class="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">#</th>';
             $html .= '<th class="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">Order ID</th>';
             $html .= '<th class="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">Customer</th>';
-            $html .= '<th class="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">Total Amount</th>';
-            $html .= '<th class="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">Status</th>';
-            $html .= '<th class="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">Scheduled For</th>';
+            $html .= '<th class="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">Amount</th>';
+            $html .= '<th class="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">Type</th>';
+            $html .= '<th class="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">' . e($dateHeading) . '</th>';
             $html .= '<th class="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">Placed At</th>';
             $html .= '<th class="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">Action</th>';
             $html .= '</tr></thead><tbody class="divide-y divide-gray-100">';
 
+            $startIndex = $orders->firstItem() ?? 1;
             foreach ($orders as $index => $order) {
-                $statusLabel = $order->order_status == 4 ? 'Placed' : 'In Progress';
-                $scheduledFor = $order->scheduled_at ? $order->scheduled_at->format('d M Y h:i A') : '-';
-                $placedAt = $order->created_at?->format('d M Y h:i A') ?? '-';
+                [$badgeLabel, $badgeClasses] = $badgeResolver($order);
                 $customerName = $order->user->name ?? 'Guest User';
+                $placedAt = $order->created_at?->format('d M Y h:i A') ?? '-';
 
-                $html .= '<tr>';
-                $html .= '<td class="px-4 py-3">' . ($index + 1) . '</td>';
-                $html .= '<td class="px-4 py-3">' . e($order->order_id) . '</td>';
+                $html .= '<tr class="align-top">';
+                $html .= '<td class="px-4 py-3">' . ($startIndex + $index) . '</td>';
+                $html .= '<td class="break-words px-4 py-3 font-medium text-gray-900 dark:text-gray-100">' . e($order->order_id) . '</td>';
                 $html .= '<td class="px-4 py-3">' . e($customerName) . '</td>';
                 $html .= '<td class="px-4 py-3">' . e($currencySymbol) . ' ' . e($order->total_price ?? 0) . '</td>';
-                $html .= '<td class="px-4 py-3">';
-                if ($showScheduleBadge && $order->is_future_scheduled) {
-                    $html .= '<span class="inline-flex rounded-full bg-brand-100 px-2.5 py-1 text-xs font-semibold text-brand-700">Scheduled</span>';
-                } else {
-                    $html .= '<span class="inline-flex rounded-full bg-success-100 px-2.5 py-1 text-xs font-semibold text-success-700">' . e($statusLabel) . '</span>';
-                }
-                $html .= '</td>';
-                $html .= '<td class="px-4 py-3">' . e($scheduledFor) . '</td>';
+                $html .= '<td class="px-4 py-3">' . $renderBadge($badgeLabel, $badgeClasses) . '</td>';
+                $html .= '<td class="px-4 py-3">' . $dateValueResolver($order) . '</td>';
                 $html .= '<td class="px-4 py-3">' . e($placedAt) . '</td>';
-                $html .= '<td class="px-4 py-3"><a href="' . e(route('restaurant.orders.details', $order->order_id)) . '" class="inline-flex rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-brand-600">View Order</a></td>';
+                $html .= '<td class="px-4 py-3"><a href="' . e(route('restaurant.orders.details', $order->order_id)) . '" class="inline-flex rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-brand-600">View</a></td>';
                 $html .= '</tr>';
+            }
+
+            $html .= '</tbody></table>';
+            return $html;
+        };
+
+        $renderMealPlanDeliveryTable = function ($items) use ($currencySymbol, $mealPlanOrderMap, $renderBadge) {
+            if ($items->count() === 0) {
+                return '<div class="px-4 py-5 text-sm text-warning-700">No upcoming meal-plan deliveries found.</div>';
+            }
+
+            $html = '<table class="min-w-full divide-y divide-gray-200 text-sm">';
+            $html .= '<thead class="bg-gray-50 dark:bg-gray-800"><tr>';
+            $html .= '<th class="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">Date & Time</th>';
+            $html .= '<th class="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">Meal Slot</th>';
+            $html .= '<th class="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">Item</th>';
+            $html .= '<th class="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">Qty</th>';
+            $html .= '<th class="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">Customer</th>';
+            $html .= '<th class="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">Plan Day</th>';
+            $html .= '<th class="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">Order</th>';
+            $html .= '</tr></thead><tbody class="divide-y divide-gray-100">';
+
+            $startIndex = $items->firstItem() ?? 1;
+            foreach ($items as $item) {
+                $order = $mealPlanOrderMap->get($item->order_id);
+                $date = $item->scheduled_date ? $item->scheduled_date->format('d M Y') : '-';
+                $time = $item->scheduled_time ? \Carbon\Carbon::parse($item->scheduled_time)->format('h:i A') : '-';
+                $customerName = $order?->user?->name ?? 'Guest User';
+                $dayLabel = $item->plan_day_number
+                    ? 'Week ' . ($item->plan_week_number ?? '-') . ', Day ' . $item->plan_day_number
+                    : '-';
+
+                $html .= '<tr class="align-top">';
+                $html .= '<td class="px-4 py-3"><div class="text-xs text-gray-500">#' . e($startIndex) . '</div><div class="font-medium text-gray-900 dark:text-gray-100">' . e($date) . '</div><div class="text-xs text-gray-500">' . e($time) . '</div></td>';
+                $html .= '<td class="px-4 py-3">' . $renderBadge($item->meal_slot ?: 'Meal', 'bg-purple-100 text-purple-700') . '</td>';
+                $html .= '<td class="px-4 py-3"><div class="font-medium text-gray-900 dark:text-gray-100">' . e($item->item_name) . '</div><div class="text-xs text-gray-500">' . e($currencySymbol) . ' ' . e($item->total_price) . '</div></td>';
+                $html .= '<td class="px-4 py-3">' . e($item->quantity) . '</td>';
+                $html .= '<td class="px-4 py-3">' . e($customerName) . '</td>';
+                $html .= '<td class="px-4 py-3">' . e($dayLabel) . '</td>';
+                $html .= '<td class="px-4 py-3"><a href="' . e(route('restaurant.orders.details', $item->order_id)) . '" class="font-semibold text-brand-600 hover:text-brand-700">' . e($item->order_id) . '</a></td>';
+                $html .= '</tr>';
+                $startIndex++;
             }
 
             $html .= '</tbody></table>';
@@ -64,24 +112,74 @@
     @endphp
 
     <div class="space-y-6">
+        @if($orderPage === 'current')
         <div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-theme-sm dark:border-gray-800 dark:bg-gray-900">
             <div class="border-b border-gray-200 px-4 py-4 dark:border-gray-800">
-                <h3 class="text-base font-semibold text-gray-900 dark:text-white">Future Scheduled Orders</h3>
-                <p class="mt-1 text-sm text-gray-500">Orders scheduled for a future date or time.</p>
+                <h3 class="text-base font-semibold text-gray-900 dark:text-white">Current Item Orders</h3>
+                <p class="mt-1 text-sm text-gray-500">Normal pick-your-item orders that are immediate, due now, or already past due. Meal-plan rows are not shown here.</p>
             </div>
             <div class="overflow-x-auto">
-                {!! $renderOrdersTable($futureOrders, 'No future scheduled orders found.', true) !!}
+                {!! $renderOrderTable(
+                    $currentAndPastItemOrders,
+                    'No current item orders found.',
+                    'Due At',
+                    fn ($order) => e(($order->scheduled_at ?? $order->created_at)?->format('d M Y h:i A') ?? '-'),
+                    fn ($order) => [$order->order_status == 4 ? 'Placed' : 'In Progress', 'bg-success-100 text-success-700']
+                ) !!}
             </div>
+            {!! $renderPagination($currentAndPastItemOrders) !!}
         </div>
+        @endif
 
+        @if($orderPage === 'scheduled')
         <div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-theme-sm dark:border-gray-800 dark:bg-gray-900">
             <div class="border-b border-gray-200 px-4 py-4 dark:border-gray-800">
-                <h3 class="text-base font-semibold text-gray-900 dark:text-white">Current and Past Orders</h3>
-                <p class="mt-1 text-sm text-gray-500">Immediate orders and scheduled orders whose time has already arrived.</p>
+                <h3 class="text-base font-semibold text-gray-900 dark:text-white">Scheduled Item Orders</h3>
+                <p class="mt-1 text-sm text-gray-500">Only normal item orders scheduled for a future date or time. Whole meal plans are kept out of this section.</p>
             </div>
             <div class="overflow-x-auto">
-                {!! $renderOrdersTable($currentAndPastOrders, 'No current or past orders found.') !!}
+                {!! $renderOrderTable(
+                    $scheduledItemOrders,
+                    'No scheduled item orders found.',
+                    'Scheduled For',
+                    fn ($order) => e($order->scheduled_at ? $order->scheduled_at->format('d M Y h:i A') : '-'),
+                    fn ($order) => ['Scheduled Item Order', 'bg-brand-100 text-brand-700']
+                ) !!}
             </div>
+            {!! $renderPagination($scheduledItemOrders) !!}
         </div>
+        @endif
+
+        @if($orderPage === 'meal-deliveries')
+        <div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-theme-sm dark:border-gray-800 dark:bg-gray-900">
+            <div class="border-b border-gray-200 px-4 py-4 dark:border-gray-800">
+                <h3 class="text-base font-semibold text-gray-900 dark:text-white">Meal Plan Delivery Schedule</h3>
+                <p class="mt-1 text-sm text-gray-500">Day-wise foods from meal plans. Use this for kitchen preparation and future meal delivery timing.</p>
+            </div>
+            <div class="overflow-x-auto">
+                {!! $renderMealPlanDeliveryTable($mealPlanDeliveryItems) !!}
+            </div>
+            {!! $renderPagination($mealPlanDeliveryItems) !!}
+        </div>
+        @endif
+
+        @if($orderPage === 'meal-packages')
+        <div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-theme-sm dark:border-gray-800 dark:bg-gray-900">
+            <div class="border-b border-gray-200 px-4 py-4 dark:border-gray-800">
+                <h3 class="text-base font-semibold text-gray-900 dark:text-white">Meal Plan Packages</h3>
+                <p class="mt-1 text-sm text-gray-500">Whole meal-plan orders, shown once per checkout. These are package records, not single delivery rows.</p>
+            </div>
+            <div class="overflow-x-auto">
+                {!! $renderOrderTable(
+                    $mealPlanOrders,
+                    'No meal plan packages found.',
+                    'Plan Period',
+                    fn ($order) => e(($order->plan_start_date ? $order->plan_start_date->format('d M Y') : '-') . ' to ' . ($order->plan_end_date ? $order->plan_end_date->format('d M Y') : '-')),
+                    fn ($order) => [($order->plan_total_days ?? 0) . ' Day Meal Plan', 'bg-purple-100 text-purple-700']
+                ) !!}
+            </div>
+            {!! $renderPagination($mealPlanOrders) !!}
+        </div>
+        @endif
     </div>
 @endsection

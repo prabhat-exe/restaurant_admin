@@ -36,6 +36,25 @@
                        class="flex items-center rounded-lg px-3 py-2.5 text-sm font-medium transition {{ $isActive ? 'bg-brand-50 text-brand-600 dark:bg-brand-500/20 dark:text-brand-300' : 'text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/5' }}">
                         {{ $link['label'] }}
                     </a>
+                    @if(($link['route'] ?? null) === 'restaurant.orders')
+                        @php
+                            $orderNavLinks = [
+                                ['label' => 'Current Item Orders', 'route' => 'restaurant.orders'],
+                                ['label' => 'Scheduled Item Orders', 'route' => 'restaurant.orders.scheduled'],
+                                ['label' => 'Meal Plan Deliveries', 'route' => 'restaurant.orders.meal-deliveries'],
+                                ['label' => 'Meal Plan Packages', 'route' => 'restaurant.orders.meal-packages'],
+                            ];
+                        @endphp
+                        <div class="ml-3 space-y-1 border-l border-gray-200 pl-3 dark:border-gray-800">
+                            @foreach($orderNavLinks as $orderLink)
+                                @php $isOrderActive = request()->routeIs($orderLink['route']); @endphp
+                                <a href="{{ route($orderLink['route']) }}"
+                                   class="flex items-center rounded-lg px-3 py-2 text-xs font-medium transition {{ $isOrderActive ? 'bg-brand-50 text-brand-600 dark:bg-brand-500/20 dark:text-brand-300' : 'text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-white/5' }}">
+                                    {{ $orderLink['label'] }}
+                                </a>
+                            @endforeach
+                        </div>
+                    @endif
                 @endforeach
             </nav>
 

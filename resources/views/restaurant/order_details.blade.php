@@ -27,7 +27,7 @@
         <div class="grid gap-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
             <div>
                 <p class="text-xs text-gray-500">Order ID</p>
-                <p class="font-semibold text-gray-800 dark:text-gray-200">{{ $order->order_id }}</p>
+                <p class="break-words font-semibold text-gray-800 dark:text-gray-200">{{ $order->order_id }}</p>
             </div>
             <div>
                 <p class="text-xs text-gray-500">Customer</p>

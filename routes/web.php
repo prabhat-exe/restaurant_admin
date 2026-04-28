@@ -80,6 +80,9 @@ Route::prefix('restaurant')->group(function () {
         ->name('menu.destroy');
 
     Route::get('orders', [RestaurantOrderController::class, 'showOrders'])->middleware('auth:restaurant')->name('restaurant.orders');
+    Route::get('orders/scheduled-items', [RestaurantOrderController::class, 'showScheduledOrders'])->middleware('auth:restaurant')->name('restaurant.orders.scheduled');
+    Route::get('orders/meal-plan-deliveries', [RestaurantOrderController::class, 'showMealPlanDeliveries'])->middleware('auth:restaurant')->name('restaurant.orders.meal-deliveries');
+    Route::get('orders/meal-plan-packages', [RestaurantOrderController::class, 'showMealPlanPackages'])->middleware('auth:restaurant')->name('restaurant.orders.meal-packages');
     Route::get('orders/{orderId}', [RestaurantOrderController::class, 'showOrderDetails'])->middleware('auth:restaurant')->name('restaurant.orders.details');
 
     Route::get('download-sample', function () {
