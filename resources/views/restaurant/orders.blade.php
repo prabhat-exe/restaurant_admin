@@ -112,10 +112,30 @@
     @endphp
 
     <div class="space-y-6">
+        @php
+            $orderTabs = [
+                ['key' => 'current', 'label' => 'Items', 'route' => 'restaurant.orders', 'count' => $orderStats['current'] ?? 0],
+                ['key' => 'scheduled', 'label' => 'Scheduled Items', 'route' => 'restaurant.orders.scheduled', 'count' => $orderStats['scheduled'] ?? 0],
+                ['key' => 'meal-deliveries', 'label' => 'Meal Deliveries', 'route' => 'restaurant.orders.meal-deliveries', 'count' => $orderStats['meal-deliveries'] ?? 0],
+                ['key' => 'meal-packages', 'label' => 'Meal Packages', 'route' => 'restaurant.orders.meal-packages', 'count' => $orderStats['meal-packages'] ?? 0],
+            ];
+        @endphp
+
+        <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            @foreach($orderTabs as $tab)
+                @php $isActiveTab = $orderPage === $tab['key']; @endphp
+                <a href="{{ route($tab['route']) }}"
+                   class="rounded-xl border px-4 py-3 transition {{ $isActiveTab ? 'border-brand-200 bg-brand-50 text-brand-700 dark:border-brand-500/40 dark:bg-brand-500/10 dark:text-brand-300' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-white/5' }}">
+                    <div class="text-xs font-semibold uppercase">{{ $tab['label'] }}</div>
+                    <div class="mt-2 text-2xl font-bold">{{ $tab['count'] }}</div>
+                </a>
+            @endforeach
+        </div>
+
         @if($orderPage === 'current')
         <div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-theme-sm dark:border-gray-800 dark:bg-gray-900">
             <div class="border-b border-gray-200 px-4 py-4 dark:border-gray-800">
-                <h3 class="text-base font-semibold text-gray-900 dark:text-white">Current Item Orders</h3>
+                <h3 class="text-base font-semibold text-gray-900 dark:text-white">Item Orders</h3>
                 <p class="mt-1 text-sm text-gray-500">Normal pick-your-item orders that are immediate, due now, or already past due. Meal-plan rows are not shown here.</p>
             </div>
             <div class="overflow-x-auto">

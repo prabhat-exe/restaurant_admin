@@ -68,6 +68,24 @@ class RestaurantOrderController extends Controller
             ->values();
 
         $today = Carbon::today()->format('Y-m-d');
+        $orderStats = [
+            'current' => $singleItemOrders
+                ->reject(fn (Order $order) => $order->is_future_scheduled)
+                ->count(),
+            'scheduled' => $singleItemOrders
+                ->filter(fn (Order $order) => $order->is_future_scheduled)
+                ->count(),
+            'meal-packages' => $orders
+                ->filter(fn (Order $order) => $order->is_meal_plan)
+                ->count(),
+            'meal-deliveries' => OrderItem::query()
+                ->where('store_id', $restaurantId)
+                ->where('is_meal_plan_item', true)
+                ->whereNotNull('scheduled_date')
+                ->where('scheduled_date', '>=', $today)
+                ->count(),
+        ];
+
         $mealPlanDeliveryQuery = OrderItem::query()
             ->where('store_id', $restaurantId)
             ->where('is_meal_plan_item', true)
@@ -134,7 +152,8 @@ class RestaurantOrderController extends Controller
             'currentAndPastItemOrders',
             'mealPlanOrders',
             'mealPlanDeliveryItems',
-            'mealPlanOrderMap'
+            'mealPlanOrderMap',
+            'orderStats'
         ));
     }
 

@@ -540,11 +540,20 @@ class OrderController extends Controller
         }
 
         $today = Carbon::today()->format('Y-m-d');
+        $type = str_replace('_', '-', strtolower((string) $request->query('type', 'all')));
 
-        $items = OrderItem::query()
+        $itemsQuery = OrderItem::query()
             ->where('user_id', $authUser->id)
             ->whereNotNull('scheduled_date')
-            ->where('scheduled_date', '>', $today)
+            ->where('scheduled_date', '>', $today);
+
+        if (in_array($type, ['meal-plan', 'meal'], true)) {
+            $itemsQuery->where('is_meal_plan_item', true);
+        } elseif (in_array($type, ['item', 'scheduled-item', 'pick-your-item'], true)) {
+            $itemsQuery->where('is_meal_plan_item', false);
+        }
+
+        $items = $itemsQuery
             ->orderBy('scheduled_date')
             ->orderBy('scheduled_time')
             ->orderBy('plan_day_number')
@@ -619,6 +628,8 @@ class OrderController extends Controller
                         return [
                             'order_id' => $item->order_id,
                             'store_name' => $order?->store_name,
+                            'order_kind' => $item->is_meal_plan_item ? 'meal_plan' : 'scheduled_item',
+                            'is_meal_plan_item' => (bool) $item->is_meal_plan_item,
                             'scheduled_date' => $item->scheduled_date?->format('Y-m-d') ?? (string) $item->scheduled_date,
                             'scheduled_time' => $item->scheduled_time,
                             'plan_day_number' => $item->plan_day_number,

@@ -39,7 +39,7 @@
                     @if(($link['route'] ?? null) === 'restaurant.orders')
                         @php
                             $orderNavLinks = [
-                                ['label' => 'Current Item Orders', 'route' => 'restaurant.orders'],
+                                ['label' => 'Item Orders', 'route' => 'restaurant.orders'],
                                 ['label' => 'Scheduled Item Orders', 'route' => 'restaurant.orders.scheduled'],
                                 ['label' => 'Meal Plan Deliveries', 'route' => 'restaurant.orders.meal-deliveries'],
                                 ['label' => 'Meal Plan Packages', 'route' => 'restaurant.orders.meal-packages'],

@@ -98,6 +98,33 @@ class MealPlanOrderTest extends TestCase
         ];
     }
 
+    private function itemOrderPayload(Restaurant $restaurant, MenuItem $item, string $selectedDate, string $time = '18:30'): array
+    {
+        return [
+            'store_id' => $restaurant->id,
+            'store_name' => $restaurant->name,
+            'order_category' => 1,
+            'order_type' => 1,
+            'total_quantity' => 1,
+            'total_price' => 100,
+            'total_tax' => 0,
+            'payment_method' => 'upi',
+            'selectedDate' => $selectedDate,
+            'time' => $time,
+            'delivery_address' => 'Connaught Place, Delhi',
+            'address_lat' => 28.6304,
+            'address_long' => 77.2177,
+            'is_meal_plan' => false,
+            'items' => [[
+                'item_id' => $item->id,
+                'item_name' => $item->name,
+                'price' => 100,
+                'total_price' => 100,
+                'quantity' => 1,
+            ]],
+        ];
+    }
+
     public function test_unauthorized_checkout_is_rejected(): void
     {
         $fixture = $this->createFixture();
@@ -156,6 +183,43 @@ class MealPlanOrderTest extends TestCase
             ->assertJsonPath('success', true)
             ->assertJsonPath('orders.0.date', '2026-04-28')
             ->assertJsonPath('orders.0.items.0.item_name', 'Balanced Bowl');
+
+        Carbon::setTestNow();
+    }
+
+    public function test_pick_your_item_future_date_becomes_scheduled_item_order(): void
+    {
+        Carbon::setTestNow('2026-04-28 10:00:00');
+        $fixture = $this->createFixture();
+
+        $response = $this
+            ->withHeader('Authorization', 'Bearer test-token')
+            ->postJson('/api/orders/place', $this->itemOrderPayload($fixture['restaurant'], $fixture['item'], '2026-04-30'));
+
+        $response->assertOk()->assertJson(['success' => true]);
+
+        $order = Order::first();
+        $this->assertFalse($order->is_meal_plan);
+        $this->assertSame(1, (int) $order->pre_order_status);
+        $this->assertSame('2026-04-30 18:30:00', $order->scheduled_at->format('Y-m-d H:i:s'));
+        $this->assertTrue($order->is_future_scheduled);
+
+        $item = OrderItem::first();
+        $this->assertFalse($item->is_meal_plan_item);
+        $this->assertSame('2026-04-30', $item->scheduled_date->format('Y-m-d'));
+
+        $this
+            ->withHeader('Authorization', 'Bearer test-token')
+            ->getJson('/api/orders/future?type=item')
+            ->assertOk()
+            ->assertJsonPath('orders.0.items.0.order_kind', 'scheduled_item')
+            ->assertJsonPath('orders.0.items.0.item_name', 'Balanced Bowl');
+
+        $this
+            ->withHeader('Authorization', 'Bearer test-token')
+            ->getJson('/api/orders/future?type=meal-plan')
+            ->assertOk()
+            ->assertJsonPath('orders', []);
 
         Carbon::setTestNow();
     }
