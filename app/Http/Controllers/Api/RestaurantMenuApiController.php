@@ -18,6 +18,24 @@ use Illuminate\Support\Facades\Schema;
 
 class RestaurantMenuApiController extends Controller
 {
+    private function restaurantPayload(Restaurant $restaurant): array
+    {
+        $hasDeliveryRadiusColumn = Schema::hasColumn('restaurants', 'delivery_radius_km');
+
+        return [
+            'id' => (int) $restaurant->id,
+            'name' => $restaurant->name,
+            'address' => $restaurant->address,
+            'latitude' => $restaurant->latitude,
+            'longitude' => $restaurant->longitude,
+            'delivery_radius_km' => $hasDeliveryRadiusColumn ? $restaurant->delivery_radius_km : null,
+            'country_currency' => $restaurant->country_currency,
+            'short_description' => $restaurant->short_description,
+            'description' => $restaurant->description,
+            'cook_time' => $restaurant->cook_time,
+        ];
+    }
+
     public function restaurants()
     {
         $hasDeliveryRadiusColumn = Schema::hasColumn('restaurants', 'delivery_radius_km');
@@ -210,20 +228,101 @@ class RestaurantMenuApiController extends Controller
             'success' => true,
             'restaurant_id' => (int) $restaurant->id,
             'restaurant_name' => $restaurant->name,
-            'restaurant' => [
-                'id' => (int) $restaurant->id,
-                'name' => $restaurant->name,
-                'address' => $restaurant->address,
-                'latitude' => $restaurant->latitude,
-                'longitude' => $restaurant->longitude,
-                'delivery_radius_km' => $hasDeliveryRadiusColumn ? $restaurant->delivery_radius_km : null,
-                'country_currency' => $restaurant->country_currency,
-                'short_description' => $restaurant->short_description,
-                'description' => $restaurant->description,
-                'cook_time' => $restaurant->cook_time,
-            ],
+            'restaurant' => $this->restaurantPayload($restaurant),
             'category_data' => $categoryData,
         ]);
+    }
+
+    public function embeddingStatus($restaurantId)
+    {
+        $restaurant = Restaurant::query()
+            ->where('id', $restaurantId)
+            ->where('is_active', 1)
+            ->first();
+
+        if (!$restaurant) {
+            return response()->json([
+                'success' => false,
+                'ready' => false,
+                'restaurant_id' => (int) $restaurantId,
+                'errors' => ['Restaurant not found or inactive'],
+            ], 404);
+        }
+
+        $aiBaseUrl = rtrim((string) config('services.ai_service.url', env('AI_SERVICE_URL', 'http://127.0.0.1:8000')), '/');
+
+        try {
+            $response = Http::timeout(10)->get($aiBaseUrl . "/restaurants/{$restaurant->id}/embedding-status");
+
+            if ($response->failed()) {
+                if ($response->status() === 404) {
+                    $fallbackResponse = Http::timeout(15)->post($aiBaseUrl . '/reindex', [
+                        'restaurant_id' => (int) $restaurant->id,
+                    ]);
+
+                    if ($fallbackResponse->successful()) {
+                        return response()->json([
+                            'success' => true,
+                            'ready' => true,
+                            'restaurant_id' => (int) $restaurant->id,
+                            'restaurant_name' => $restaurant->name,
+                            'restaurant' => $this->restaurantPayload($restaurant),
+                            'embedding_status' => [
+                                'success' => true,
+                                'ready' => true,
+                                'restaurant_id' => (int) $restaurant->id,
+                                'message' => 'Embeddings are ready',
+                                'verified_by' => 'reindex_fallback',
+                                'data' => $fallbackResponse->json(),
+                            ],
+                            'errors' => [],
+                        ]);
+                    }
+
+                    return response()->json([
+                        'success' => false,
+                        'ready' => false,
+                        'restaurant_id' => (int) $restaurant->id,
+                        'restaurant' => $this->restaurantPayload($restaurant),
+                        'errors' => ['AI embedding status route was not found and reindex fallback failed'],
+                        'status' => $fallbackResponse->status(),
+                        'body' => $fallbackResponse->json(),
+                    ], 502);
+                }
+
+                return response()->json([
+                    'success' => false,
+                    'ready' => false,
+                    'restaurant_id' => (int) $restaurant->id,
+                    'restaurant' => $this->restaurantPayload($restaurant),
+                    'errors' => ['AI embedding status request failed'],
+                    'status' => $response->status(),
+                    'body' => $response->json(),
+                ], 502);
+            }
+
+            $aiStatus = $response->json() ?? [];
+            $ready = (bool) ($aiStatus['ready'] ?? false);
+
+            return response()->json([
+                'success' => $ready,
+                'ready' => $ready,
+                'restaurant_id' => (int) $restaurant->id,
+                'restaurant_name' => $restaurant->name,
+                'restaurant' => $this->restaurantPayload($restaurant),
+                'embedding_status' => $aiStatus,
+                'errors' => $ready ? [] : [$aiStatus['message'] ?? 'Restaurant embeddings are not ready yet'],
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'ready' => false,
+                'restaurant_id' => (int) $restaurant->id,
+                'restaurant' => $this->restaurantPayload($restaurant),
+                'errors' => ['Unable to check AI embedding status'],
+                'details' => $e->getMessage(),
+            ], 502);
+        }
     }
 
     public function triggerReindex(Request $request, $restaurantId)

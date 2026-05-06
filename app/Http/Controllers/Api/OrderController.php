@@ -18,6 +18,8 @@ use Illuminate\Support\Facades\Validator;
 
 class OrderController extends Controller
 {
+    private const DELIVERY_LEAD_TIME_MINUTES = 30;
+
     /**
      * Place an order (store order and item details).
      */
@@ -347,6 +349,14 @@ class OrderController extends Controller
         if (!$isMealPlan && ($selectedDate !== '' || $selectedTime !== '')) {
             try {
                 $scheduledAt = $this->parseScheduledAt($selectedDate, $selectedTime);
+
+                if ($scheduledAt->lessThan(Carbon::now()->addMinutes(self::DELIVERY_LEAD_TIME_MINUTES))) {
+                    return response()->json([
+                        'success' => false,
+                        'errors' => ['Delivery time must be at least 30 minutes from now'],
+                    ], 422);
+                }
+
                 $selectedDate = $scheduledAt->format('Y-m-d');
                 $selectedTime = $selectedTime !== '' ? $scheduledAt->format('H:i:s') : '';
                 $preOrderStatus = $scheduledAt->greaterThan(Carbon::now()) ? 1 : 0;

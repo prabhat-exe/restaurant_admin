@@ -39,4 +39,8 @@ return [
         'key' => env('GOOGLE_MAPS_API_KEY'),
     ],
 
+    'ai_service' => [
+        'url' => env('AI_SERVICE_URL', 'http://127.0.0.1:8000'),
+    ],
+
 ];

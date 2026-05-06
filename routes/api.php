@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Route;
 // ...existing code...
 
 Route::get('/restaurants', [RestaurantMenuApiController::class, 'restaurants']);
+Route::get('/restaurants/{id}/embedding-status', [RestaurantMenuApiController::class, 'embeddingStatus']);
 Route::get('/restaurants/{id}/menu', [RestaurantMenuApiController::class, 'menu']);
 Route::post('/restaurants/{id}/menu/reindex', [RestaurantMenuApiController::class, 'triggerReindex']);
 

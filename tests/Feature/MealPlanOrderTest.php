@@ -223,4 +223,28 @@ class MealPlanOrderTest extends TestCase
 
         Carbon::setTestNow();
     }
+
+    public function test_pick_your_item_today_requires_thirty_minute_delivery_lead_time(): void
+    {
+        Carbon::setTestNow('2026-04-28 10:00:00');
+        $fixture = $this->createFixture();
+
+        $this
+            ->withHeader('Authorization', 'Bearer test-token')
+            ->postJson('/api/orders/place', $this->itemOrderPayload($fixture['restaurant'], $fixture['item'], '2026-04-28', '10:20'))
+            ->assertStatus(422)
+            ->assertJsonPath('errors.0', 'Delivery time must be at least 30 minutes from now');
+
+        $this->assertSame(0, Order::count());
+
+        $this
+            ->withHeader('Authorization', 'Bearer test-token')
+            ->postJson('/api/orders/place', $this->itemOrderPayload($fixture['restaurant'], $fixture['item'], '2026-04-28', '10:30'))
+            ->assertOk()
+            ->assertJson(['success' => true]);
+
+        $this->assertSame(1, Order::count());
+
+        Carbon::setTestNow();
+    }
 }
