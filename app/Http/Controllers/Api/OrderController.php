@@ -554,13 +554,18 @@ class OrderController extends Controller
 
         $itemsQuery = OrderItem::query()
             ->where('user_id', $authUser->id)
-            ->whereNotNull('scheduled_date')
-            ->where('scheduled_date', '>', $today);
+            ->whereNotNull('scheduled_date');
 
         if (in_array($type, ['meal-plan', 'meal'], true)) {
-            $itemsQuery->where('is_meal_plan_item', true);
+            $itemsQuery
+                ->where('is_meal_plan_item', true)
+                ->where('scheduled_date', '>=', $today);
         } elseif (in_array($type, ['item', 'scheduled-item', 'pick-your-item'], true)) {
-            $itemsQuery->where('is_meal_plan_item', false);
+            $itemsQuery
+                ->where('is_meal_plan_item', false)
+                ->where('scheduled_date', '>', $today);
+        } else {
+            $itemsQuery->where('scheduled_date', '>=', $today);
         }
 
         $items = $itemsQuery

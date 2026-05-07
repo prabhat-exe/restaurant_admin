@@ -187,6 +187,28 @@ class MealPlanOrderTest extends TestCase
         Carbon::setTestNow();
     }
 
+    public function test_meal_plan_future_orders_include_todays_scheduled_rows(): void
+    {
+        Carbon::setTestNow('2026-04-28 10:00:00');
+        $fixture = $this->createFixture();
+
+        $this
+            ->withHeader('Authorization', 'Bearer test-token')
+            ->postJson('/api/orders/place', $this->mealPlanPayload($fixture['restaurant'], $fixture['item'], 2))
+            ->assertOk();
+
+        $this
+            ->withHeader('Authorization', 'Bearer test-token')
+            ->getJson('/api/orders/future?type=meal-plan')
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('orders.0.date', '2026-04-28')
+            ->assertJsonPath('orders.0.items.0.order_kind', 'meal_plan')
+            ->assertJsonPath('orders.0.items.0.item_name', 'Balanced Bowl');
+
+        Carbon::setTestNow();
+    }
+
     public function test_pick_your_item_future_date_becomes_scheduled_item_order(): void
     {
         Carbon::setTestNow('2026-04-28 10:00:00');
