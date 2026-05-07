@@ -12,9 +12,28 @@
     <div class="min-h-screen">
         <aside id="sidebar" class="fixed top-0 left-0 z-50 flex h-screen w-[280px] -translate-x-full flex-col border-r border-gray-200 bg-white transition-transform duration-300 dark:border-gray-800 dark:bg-gray-900 xl:translate-x-0">
             <div class="border-b border-gray-200 px-6 py-5 dark:border-gray-800">
-                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
-                    {{ auth('restaurant')->user()->name ?? 'Restaurant Panel' }}
-                </h2>
+                @php
+                    $sidebarRestaurant = auth('restaurant')->user();
+                    $sidebarBotUrl = $sidebarRestaurant
+                        ? rtrim((string) config('services.frontend.url', 'http://127.0.0.1:3000'), '/') . '/bot/' . $sidebarRestaurant->id
+                        : null;
+                @endphp
+                <div class="flex items-center gap-2">
+                    <h2 class="min-w-0 flex-1 truncate text-lg font-semibold text-gray-900 dark:text-white">
+                        {{ $sidebarRestaurant->name ?? 'Restaurant Panel' }}
+                    </h2>
+                    @if($sidebarBotUrl)
+                        <a
+                            href="{{ $sidebarBotUrl }}"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="shrink-0 rounded-md border border-brand-200 px-2 py-1 text-xs font-medium text-brand-600 hover:bg-brand-50 dark:border-brand-500/40 dark:text-brand-300 dark:hover:bg-brand-500/10"
+                            title="{{ $sidebarBotUrl }}"
+                        >
+                            Visit
+                        </a>
+                    @endif
+                </div>
             </div>
 
             <nav class="flex-1 space-y-1 overflow-y-auto px-4 py-4">
